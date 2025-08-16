@@ -21,13 +21,7 @@ jobs:
             echo "# Daily Commit Log" > update.md
           fi
 
-      # ----- 第一次随机提交 -----
-      - name: First random delay
-        run: |
-          DELAY=$((RANDOM % 28800))  # 0~8小时随机延迟
-          echo "Waiting $DELAY seconds before first commit..."
-          sleep $DELAY
-
+      # ----- 第一次提交 -----
       - name: Append first log
         run: |
           echo "$(TZ='Asia/Shanghai' date '+%Y-%m-%d %H:%M:%S') - 自动打卡 🌱" >> update.md
@@ -40,13 +34,7 @@ jobs:
           git commit -m "chore: daily log update" || echo "No changes to commit"
           git push
 
-      # ----- 第二次随机提交 -----
-      - name: Second random delay
-        run: |
-          DELAY=$((RANDOM % 28800))  # 0~8小时随机延迟
-          echo "Waiting $DELAY seconds before second commit..."
-          sleep $DELAY
-
+      # ----- 第二次提交 -----
       - name: Append second log
         run: |
           echo "$(TZ='Asia/Shanghai' date '+%Y-%m-%d %H:%M:%S') - 自动打卡 🌱" >> update.md
@@ -59,7 +47,7 @@ jobs:
           git commit -m "chore: daily log update" || echo "No changes to commit"
           git push
 
-      # ----- 随机生成每日 Issue (30% 概率) -----
+      # ----- 创建每日 Issue -----
       - name: Create daily issue
         run: |
           echo "生成每日 Issue"
@@ -69,7 +57,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
 
-      # ----- 随机生成每日 Pull Request (30% 概率) -----
+      # ----- 创建每日 Pull Request -----
       - name: Create daily PR
         run: |
           BRANCH="daily-pr-$(date '+%Y%m%d%H%M%S')"
