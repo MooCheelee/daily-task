@@ -1,29 +1,32 @@
-name: Twice Daily Commit
+name: Twice Daily Commit Log
 
 on:
   schedule:
     - cron: '0 16 * * *'  # 北京时间 0 点
     - cron: '0 0 * * *'   # 北京时间 8 点
-  workflow_dispatch:       # 允许手动触发
+  workflow_dispatch:       # 手动触发
 
 jobs:
-  build:
+  daily-log:
     runs-on: ubuntu-latest
 
     steps:
-      # 拉取仓库
       - name: Checkout repo
         uses: actions/checkout@v3
         with:
-          persist-credentials: true  # 使用 GITHUB_TOKEN 推送，避免 403
+          token: ${{ secrets.GH_TOKEN }}  # 使用你添加的 PAT secret
 
-      # 更新 update.md，追加日志
+      - name: Ensure update.md exists
+        run: |
+          if [ ! -f update.md ]; then
+            echo "# Daily Commit Log" > update.md
+          fi
+
       - name: Append daily log
         run: |
           echo "$(date '+%Y-%m-%d %H:%M:%S') - 自动打卡 🌱" >> update.md
 
-      # 提交并推送
-      - name: Commit changes
+      - name: Commit and push changes
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
