@@ -1,4 +1,4 @@
-name: Twice Daily Commit Log
+name: Twice Daily Commit Log (Beijing Time)
 
 on:
   schedule:
@@ -11,21 +11,25 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      # 拉取仓库并使用 PAT
       - name: Checkout repo
         uses: actions/checkout@v3
         with:
-          token: ${{ secrets.GH_TOKEN }}  # 使用你添加的 PAT secret
+          token: ${{ secrets.GH_TOKEN }}
 
+      # 确保 update.md 存在
       - name: Ensure update.md exists
         run: |
           if [ ! -f update.md ]; then
             echo "# Daily Commit Log" > update.md
           fi
 
+      # 追加北京时间日志
       - name: Append daily log
         run: |
-          echo "$(date '+%Y-%m-%d %H:%M:%S') - 自动打卡 🌱" >> update.md
+          echo "$(TZ='Asia/Shanghai' date '+%Y-%m-%d %H:%M:%S') - 自动打卡 🌱" >> update.md
 
+      # 提交并推送
       - name: Commit and push changes
         run: |
           git config user.name "github-actions[bot]"
