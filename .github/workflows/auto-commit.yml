@@ -1,8 +1,6 @@
 name: Daily Random GitHub Activity
 
 on:
-  schedule:
-    - cron: '0 0 * * *'   # UTC 0 点触发
   workflow_dispatch:       # 手动触发
 
 jobs:
@@ -62,38 +60,39 @@ jobs:
           git push
 
       # ----- 随机生成每日 Issue (30% 概率) -----
-      - name: Randomly create daily issue
+      - name: Create daily issue
         run: |
-          RAND=$((RANDOM % 100))
-          if [ $RAND -lt 30 ]; then
-            echo "生成每日 Issue"
-            gh issue create --title "Daily Issue - $(TZ='Asia/Shanghai' date '+%Y-%m-%d')" \
-                            --body "随机生成每日 Issue 🌱" \
-                            --repo $GITHUB_REPOSITORY
-          else
-            echo "今天不生成 Issue"
-          fi
+          echo "生成每日 Issue"
+          gh issue create --title "Daily Issue - $(TZ='Asia/Shanghai' date '+%Y-%m-%d')" \
+                           --body "随机生成每日 Issue 🌱" \
+                           --repo $GITHUB_REPOSITORY
         env:
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
 
       # ----- 随机生成每日 Pull Request (30% 概率) -----
-      - name: Randomly create daily PR
+      - name: Create daily PR
         run: |
-          RAND=$((RANDOM % 100))
-          if [ $RAND -lt 30 ]; then
-            BRANCH="daily-pr-$(date '+%Y%m%d%H%M%S')"
-            git checkout -b $BRANCH
-            echo "$(TZ='Asia/Shanghai' date '+%Y-%m-%d %H:%M:%S') - 自动 PR 日志 🌱" >> update.md
-            git add update.md
-            git commit -m "chore: daily PR update"
-            git push origin $BRANCH
-            gh pr create --title "Daily PR - $(TZ='Asia/Shanghai' date '+%Y-%m-%d')" \
-                         --body "随机生成每日 PR 🌱" \
-                         --base main \
-                         --head $BRANCH \
-                         --repo $GITHUB_REPOSITORY
-          else
-            echo "今天不生成 PR"
-          fi
+          BRANCH="daily-pr-$(date '+%Y%m%d%H%M%S')"
+          git checkout -b $BRANCH
+          echo "$(TZ='Asia/Shanghai' date '+%Y-%m-%d %H:%M:%S') - 自动 PR 日志 🌱" >> update.md
+          git add update.md
+          git commit -m "chore: daily PR update"
+          git push origin $BRANCH
+          gh pr create --title "Daily PR - $(TZ='Asia/Shanghai' date '+%Y-%m-%d')" \
+                       --body "随机生成每日 PR 🌱" \
+                       --base main \
+                       --head $BRANCH \
+                       --repo $GITHUB_REPOSITORY
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+
+      # ----- 给热门仓库加星标 -----
+      - name: Star a popular repository
+        run: |
+          # 示例：获取一个随机热门仓库并给它加星
+          REPO_LIST=("torvalds/linux" "microsoft/vscode" "apple/swift" "tensorflow/tensorflow" "vuejs/vue")
+          RANDOM_REPO=${REPO_LIST[$((RANDOM % ${#REPO_LIST[@]}))]}
+          echo "Star-ing $RANDOM_REPO repository"
+          gh repo star $RANDOM_REPO --repo $RANDOM_REPO
         env:
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
