@@ -1,39 +1,99 @@
-name: Twice Daily Commit Log (Beijing Time)
+name: Daily Random GitHub Activity
 
 on:
   schedule:
-    - cron: '0 16 * * *'  # 北京时间 0 点
-    - cron: '0 0 * * *'   # 北京时间 8 点
+    - cron: '0 0 * * *'   # UTC 0 点触发
   workflow_dispatch:       # 手动触发
 
 jobs:
-  daily-log:
+  daily-activity:
     runs-on: ubuntu-latest
 
     steps:
-      # 拉取仓库并使用 PAT
+      # 拉取仓库
       - name: Checkout repo
         uses: actions/checkout@v3
         with:
           token: ${{ secrets.GH_TOKEN }}
 
-      # 确保 update.md 存在
+      # 确保 update.md 文件存在
       - name: Ensure update.md exists
         run: |
           if [ ! -f update.md ]; then
             echo "# Daily Commit Log" > update.md
           fi
 
-      # 追加北京时间日志
-      - name: Append daily log
+      # ----- 第一次随机提交 -----
+      - name: First random delay
+        run: |
+          DELAY=$((RANDOM % 28800))  # 0~8小时随机延迟
+          echo "Waiting $DELAY seconds before first commit..."
+          sleep $DELAY
+
+      - name: Append first log
         run: |
           echo "$(TZ='Asia/Shanghai' date '+%Y-%m-%d %H:%M:%S') - 自动打卡 🌱" >> update.md
 
-      # 提交并推送
-      - name: Commit and push changes
+      - name: Commit and push first log
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add update.md
           git commit -m "chore: daily log update" || echo "No changes to commit"
           git push
+
+      # ----- 第二次随机提交 -----
+      - name: Second random delay
+        run: |
+          DELAY=$((RANDOM % 28800))  # 0~8小时随机延迟
+          echo "Waiting $DELAY seconds before second commit..."
+          sleep $DELAY
+
+      - name: Append second log
+        run: |
+          echo "$(TZ='Asia/Shanghai' date '+%Y-%m-%d %H:%M:%S') - 自动打卡 🌱" >> update.md
+
+      - name: Commit and push second log
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add update.md
+          git commit -m "chore: daily log update" || echo "No changes to commit"
+          git push
+
+      # ----- 随机生成每日 Issue (30% 概率) -----
+      - name: Randomly create daily issue
+        run: |
+          RAND=$((RANDOM % 100))
+          if [ $RAND -lt 30 ]; then
+            echo "生成每日 Issue"
+            gh issue create --title "Daily Issue - $(TZ='Asia/Shanghai' date '+%Y-%m-%d')" \
+                            --body "随机生成每日 Issue 🌱" \
+                            --repo $GITHUB_REPOSITORY
+          else
+            echo "今天不生成 Issue"
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+
+      # ----- 随机生成每日 Pull Request (30% 概率) -----
+      - name: Randomly create daily PR
+        run: |
+          RAND=$((RANDOM % 100))
+          if [ $RAND -lt 30 ]; then
+            BRANCH="daily-pr-$(date '+%Y%m%d%H%M%S')"
+            git checkout -b $BRANCH
+            echo "$(TZ='Asia/Shanghai' date '+%Y-%m-%d %H:%M:%S') - 自动 PR 日志 🌱" >> update.md
+            git add update.md
+            git commit -m "chore: daily PR update"
+            git push origin $BRANCH
+            gh pr create --title "Daily PR - $(TZ='Asia/Shanghai' date '+%Y-%m-%d')" \
+                         --body "随机生成每日 PR 🌱" \
+                         --base main \
+                         --head $BRANCH \
+                         --repo $GITHUB_REPOSITORY
+          else
+            echo "今天不生成 PR"
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
