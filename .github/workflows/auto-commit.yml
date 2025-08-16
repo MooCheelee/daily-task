@@ -75,12 +75,12 @@ jobs:
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
 
       # ----- 给热门仓库加星标 -----
-      - name: Star a popular repository
-        run: |
-          # 示例：获取一个随机热门仓库并给它加星
-          REPO_LIST=("torvalds/linux" "microsoft/vscode" "apple/swift" "tensorflow/tensorflow" "vuejs/vue")
-          RANDOM_REPO=${REPO_LIST[$((RANDOM % ${#REPO_LIST[@]}))]}
-          echo "Star-ing $RANDOM_REPO repository"
-          gh repo star $RANDOM_REPO --repo $RANDOM_REPO
-        env:
-          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+- name: Star a popular repository
+  run: |
+    # 示例：获取一个随机热门仓库并给它加星
+    REPO_LIST=("torvalds/linux" "microsoft/vscode" "apple/swift" "tensorflow/tensorflow" "vuejs/vue")
+    RANDOM_REPO=${REPO_LIST[$((RANDOM % ${#REPO_LIST[@]}))]}
+    echo "Star-ing $RANDOM_REPO repository"
+    gh repo star $RANDOM_REPO
+  env:
+    GH_TOKEN: ${{ secrets.GH_TOKEN }}
