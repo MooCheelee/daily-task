@@ -26,7 +26,7 @@ jobs:
       # ----- 第一次随机提交 -----
       - name: First random delay
         run: |
-          DELAY=$((RANDOM % 60))  # 0~8小时随机延迟
+          DELAY=$((RANDOM % 28800))  # 0~8小时随机延迟
           echo "Waiting $DELAY seconds before first commit..."
           sleep $DELAY
 
