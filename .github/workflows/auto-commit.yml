@@ -1,10 +1,10 @@
-name: Daily Random GitHub Activity
+name: Test Code Review Activity
 
 on:
   workflow_dispatch:       # 手动触发
 
 jobs:
-  daily-activity:
+  code-review:
     runs-on: ubuntu-latest
 
     steps:
@@ -14,72 +14,21 @@ jobs:
         with:
           token: ${{ secrets.GH_TOKEN }}
 
-      # 确保 update.md 文件存在
-      - name: Ensure update.md exists
-        run: |
-          if [ ! -f update.md ]; then
-            echo "# Daily Commit Log" > update.md
-          fi
-
-      # ----- 第一次提交 -----
-      - name: Append first log
-        run: |
-          echo "$(TZ='Asia/Shanghai' date '+%Y-%m-%d %H:%M:%S') - 自动打卡 🌱" >> update.md
-
-      - name: Commit and push first log
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add update.md
-          git commit -m "chore: daily log update" || echo "No changes to commit"
-          git push
-
-      # ----- 第二次提交 -----
-      - name: Append second log
-        run: |
-          echo "$(TZ='Asia/Shanghai' date '+%Y-%m-%d %H:%M:%S') - 自动打卡 🌱" >> update.md
-
-      - name: Commit and push second log
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add update.md
-          git commit -m "chore: daily log update" || echo "No changes to commit"
-          git push
-
-      # ----- 随机创建每日 Issue (30% 概率) -----
-      - name: Randomly create daily issue
+      # ----- 随机给 PR 进行代码审查 (30% 概率) (增加 Code Reviews) -----
+      - name: Randomly add code review comment
         run: |
           RAND=$((RANDOM % 100))
           if [ $RAND -lt 30 ]; then
-            echo "生成每日 Issue"
-            gh issue create --title "Daily Issue - $(TZ='Asia/Shanghai' date '+%Y-%m-%d')" \
-                             --body "随机生成每日 Issue 🌱" \
-                             --repo $GITHUB_REPOSITORY
+            # 获取第一个打开的 PR URL
+            PR_URL=$(gh pr list --state open --repo $GITHUB_REPOSITORY --json url -q '.[0].url')
+            if [ -n "$PR_URL" ]; then
+              echo "Adding review comment to PR: $PR_URL"
+              gh pr review $PR_URL --approve --body "Good work! Keep it up! 🌱"
+            else
+              echo "No open PR found to review."
+            fi
           else
-            echo "今天不生成 Issue"
-          fi
-        env:
-          GH_TOKEN: ${{ secrets.GH_TOKEN }}
-
-      # ----- 随机创建每日 PR (30% 概率) -----
-      - name: Randomly create daily PR
-        run: |
-          RAND=$((RANDOM % 100))
-          if [ $RAND -lt 30 ]; then
-            BRANCH="daily-pr-$(date '+%Y%m%d%H%M%S')"
-            git checkout -b $BRANCH
-            echo "$(TZ='Asia/Shanghai' date '+%Y-%m-%d %H:%M:%S') - 自动 PR 日志 🌱" >> update.md
-            git add update.md
-            git commit -m "chore: daily PR update"
-            git push origin $BRANCH
-            gh pr create --title "Daily PR - $(TZ='Asia/Shanghai' date '+%Y-%m-%d')" \
-                         --body "随机生成每日 PR 🌱" \
-                         --base main \
-                         --head $BRANCH \
-                         --repo $GITHUB_REPOSITORY
-          else
-            echo "今天不生成 PR"
+            echo "今天不进行代码审查"
           fi
         env:
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
