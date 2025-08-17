@@ -30,6 +30,12 @@ jobs:
             echo "# Daily Commit Log" > update.md
           fi
 
+      # ----- 清理 7 天前的日志 -----
+      - name: Clean up logs older than 7 days
+        run: |
+          find . -name "update.md" -mtime +7 -exec rm -f {} \;
+          echo "Cleaned up logs older than 7 days."
+
       # ----- 随机提交日志 (增加 Commits) -----
       - name: Append random log
         run: |
