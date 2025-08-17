@@ -19,13 +19,24 @@ jobs:
         run: |
           RAND=$((RANDOM % 100))
           if [ $RAND -lt 30 ]; then
-            # 获取第一个打开的 PR URL
-            PR_URL=$(gh pr list --state open --repo $GITHUB_REPOSITORY --json url -q '.[0].url')
-            if [ -n "$PR_URL" ]; then
-              echo "Adding review comment to PR: $PR_URL"
-              gh pr review $PR_URL --approve --body "Good work! Keep it up! 🌱"
+            # 获取第一个打开的 PR URL 和 PR 作者
+            PR_INFO=$(gh pr list --state open --repo $GITHUB_REPOSITORY --json url,author -q '.[0]')
+            PR_URL=$(echo "$PR_INFO" | jq -r '.url')
+            PR_AUTHOR=$(echo "$PR_INFO" | jq -r '.author.login')
+
+            # 获取当前 GitHub 用户名
+            CURRENT_USER=$(gh api user -q '.login')
+
+            # 检查 PR 作者是否是当前用户
+            if [ "$PR_AUTHOR" != "$CURRENT_USER" ]; then
+              if [ -n "$PR_URL" ]; then
+                echo "Adding review comment to PR: $PR_URL"
+                gh pr review $PR_URL --approve --body "Good work! Keep it up! 🌱"
+              else
+                echo "No open PR found to review."
+              fi
             else
-              echo "No open PR found to review."
+              echo "Skipping review for your own PR."
             fi
           else
             echo "今天不进行代码审查"
