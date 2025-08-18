@@ -26,7 +26,7 @@ jobs:
       # 随机延迟（模拟每天随机时间执行）
       - name: Wait for random delay
         run: |
-          DELAY=$((RANDOM % 5))  # 随机延迟 0-86400 秒（24 小时内）
+          DELAY=$((RANDOM % 1))  # 随机延迟 0-86400 秒（24 小时内）
           echo "Waiting for $DELAY seconds before starting actions..."
           sleep $DELAY
 
