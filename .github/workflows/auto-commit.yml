@@ -151,4 +151,3 @@ jobs:
       - name: Delete branch after merge
         run: |
           echo "Deleting branch ${{ github.head_ref }} ..."
-     
