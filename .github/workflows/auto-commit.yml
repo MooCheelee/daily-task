@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       REPO: ${{ github.repository }}
-      ACTOR_A: ${{ github.actor }}        # workflow 默认账号 A
+      ACTOR_A: ${{ github.actor }}
       TOKEN_A: ${{ secrets.GH_TOKEN }}    # workflow 默认 token
       TOKEN_B: ${{ secrets.PAT_B }}       # 账号 B 的 PAT，用于自动 approve
 
@@ -39,6 +39,8 @@ jobs:
           echo "execution_count=$EXEC_COUNT" >> $GITHUB_OUTPUT
 
       - name: Run Random Actions (commit / Issue / PR)
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}   # 给 gh 命令授权
         run: |
           ISSUE_BODIES=("随机生成每日 Issue 🌱" "自动记录每日活跃 ✨" "今日日志 Issue 🐣" "小小提醒：保持活跃 💡" "每日笔记日志 📝")
           PR_BODIES=("随机生成每日 PR 🌱" "每日更新记录 ✨" "自动生成 PR 🐣" "今日工作快照 📸" "小改动 PR ✏️")
@@ -71,7 +73,7 @@ jobs:
             echo "## $TIME_STR - Run $i $LINE_EMOJIS $LINE_TAGS" >> update.md
             echo "- 📝 Commit: 更新日志 $LINE_EMOJIS $LINE_TAGS" >> update.md
 
-            # 随机 1~3 commit
+            # 随机 commit
             COMMIT_COUNT=$((1 + RANDOM % 3))
             for j in $(seq 1 $COMMIT_COUNT); do
               LINE="随机日志内容 $RANDOM $LINE_EMOJIS $LINE_TAGS"
@@ -131,11 +133,11 @@ jobs:
 
       - name: Auto Approve PRs using B
         env:
-          GH_TOKEN: ${{ secrets.PAT_B }}
+          GH_TOKEN: ${{ secrets.PAT_B }}  # 使用账号 B 的 PAT
         run: |
           echo "Fetching open PRs not by B..."
           PR_LIST=$(gh pr list --state open --repo $REPO --json number,author \
-                    --jq ".[] | select(.author.login != \"MooChee-lee\") | .number")
+                    --jq ".[] | select(.author.login != \"B账号用户名\") | .number")
           for PR in $PR_LIST; do
             echo "Approving PR #$PR with B..."
             gh pr review $PR --approve --body "👍 自动互相 Code Review" --repo $REPO
