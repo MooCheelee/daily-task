@@ -14,7 +14,7 @@ jobs:
       - name: Checkout repo
         uses: actions/checkout@v3
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.GH_PAT }}  # 用个人 PAT 拉取有写权限的仓库
 
       # 随机延迟 0~24 小时
       - name: Random delay
@@ -40,20 +40,21 @@ jobs:
       - name: Append daily log
         run: |
           echo "$(TZ='Asia/Shanghai' date '+%Y-%m-%d %H:%M:%S') - 自动提交日志 🌱" >> update.md
+
       - name: Commit and push log
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_PAT }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add update.md
           git commit -m "chore: daily log update" || echo "No changes to commit"
-          git push
+          git push origin main
 
       # 随机创建 Issue
       - name: Randomly create Issue
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_PAT }}
         run: |
           RAND=$((RANDOM % 100))
           if [ $RAND -lt 100 ]; then
@@ -66,7 +67,7 @@ jobs:
       # 随机创建 PR
       - name: Randomly create PR
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_PAT }}
         run: |
           RAND=$((RANDOM % 100))
           if [ $RAND -lt 100 ]; then
@@ -85,7 +86,7 @@ jobs:
       # 自动对开源仓库 PR 做 Code Review
       - name: Auto Code Review on external repo
         env:
-          GH_TOKEN: ${{ secrets.GH_PAT }}   # 注意：对外部仓库必须用个人 PAT
+          GH_TOKEN: ${{ secrets.GH_PAT }}
         run: |
           TARGET_REPO="MooChee-lee/Daily Quests"  # 替换为你要 review 的开源仓库
           PR_LIST=$(gh pr list --state open --repo $TARGET_REPO --json number -q '.[].number')
