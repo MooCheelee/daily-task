@@ -82,6 +82,7 @@ jobs:
                          --base main \
                          --head $BRANCH \
                          --repo $GITHUB_REPOSITORY
+            fi
 
       # 自动对开源仓库 PR 做 Code Review
       - name: Auto Code Review on external repo
