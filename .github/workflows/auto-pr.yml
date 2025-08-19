@@ -1,0 +1,63 @@
+name: Auto PR & Review
+
+on:
+  schedule:
+    - cron: "0 0 * * *"   # 每天 UTC 2:00 运行（北京时间 10:00）
+  workflow_dispatch:      # 手动触发
+
+jobs:
+  auto-pr:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v3
+
+      # ========= 账号 A 提交日志 & 创建 PR =========
+      - name: Commit daily log (Account A)
+        run: |
+          echo "更新日志 $(date)" >> update.md
+          git config --global user.name "AccountA"
+          git config --global user.email "AccountA@example.com"
+          git checkout -b daily-pr-$(date +%Y%m%d%H%M%S)
+          git add update.md
+          git commit -m "chore: finalize daily log"
+          git push origin HEAD
+
+      - name: Create PR (Account A)
+        env:
+          GH_TOKEN: ${{ secrets.PAT_A }}
+        run: |
+          gh pr create \
+            --title "Daily Log Update $(date +%Y-%m-%d)" \
+            --body "自动生成的日志更新 PR" \
+            --base main \
+            --head $(git branch --show-current) \
+            --repo ${{ github.repository }}
+
+      # ========= 账号 B 审核 PR =========
+      - name: Auto Approve PRs using B
+        run: |
+          echo "Fetching open PRs not by B..."
+
+          bash -c '
+            GH_TOKEN=${{ secrets.PAT_B }}
+            REPO="${{ github.repository }}"
+            B_USER="MooChee-lee"   # ⚠️ 替换成账号 B 的 GitHub 用户名
+
+            # 获取所有可审核 PR
+            PR_LIST=$(gh pr list --state open --repo $REPO --json number,author \
+                      --jq ".[] | select(.author.login != \"$B_USER\") | .number")
+
+            echo "可审核的 PR 列表：$PR_LIST"
+
+            if [ -z "$PR_LIST" ]; then
+              echo "没有可审核的 PR，跳过 approve"
+            else
+              for PR in $PR_LIST; do
+                echo "Approving PR #$PR with B..."
+                GH_TOKEN=${{ secrets.PAT_B }} gh pr review $PR --approve \
+                  --body "👍 自动互相 Code Review" --repo $REPO
+              done
+            fi
+          '
