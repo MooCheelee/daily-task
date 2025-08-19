@@ -14,9 +14,9 @@ jobs:
       - name: Checkout repo
         uses: actions/checkout@v3
         with:
-          token: ${{ secrets.GH_TOKEN }}
+          token: ${{ secrets.GITHUB_TOKEN }}
 
-      # 随机延迟 0~24 小时，模拟随机时间
+      # 随机延迟 0~24 小时
       - name: Random delay
         run: |
           DELAY=$((RANDOM % 1))
@@ -41,6 +41,8 @@ jobs:
         run: |
           echo "$(TZ='Asia/Shanghai' date '+%Y-%m-%d %H:%M:%S') - 自动提交日志 🌱" >> update.md
       - name: Commit and push log
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
@@ -48,8 +50,10 @@ jobs:
           git commit -m "chore: daily log update" || echo "No changes to commit"
           git push
 
-      # 随机创建 Issue（40% 概率，测试版保持 100%）
+      # 随机创建 Issue
       - name: Randomly create Issue
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           RAND=$((RANDOM % 100))
           if [ $RAND -lt 100 ]; then
@@ -58,11 +62,11 @@ jobs:
                              --body "随机生成每日 Issue 🌱" \
                              --repo $GITHUB_REPOSITORY
           fi
-        env:
-          GH_TOKEN: ${{ secrets.GH_TOKEN }}
 
-      # 随机创建 PR（20% 概率，测试版保持 100%）
+      # 随机创建 PR
       - name: Randomly create PR
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           RAND=$((RANDOM % 100))
           if [ $RAND -lt 100 ]; then
@@ -77,14 +81,13 @@ jobs:
                          --base main \
                          --head $BRANCH \
                          --repo $GITHUB_REPOSITORY
-          fi
-        env:
-          GH_TOKEN: ${{ secrets.GH_TOKEN }}
 
-      # 自动对开源仓库 PR 做 Code Review（贡献图真实显示）
+      # 自动对开源仓库 PR 做 Code Review
       - name: Auto Code Review on external repo
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}   # 注意：对外部仓库必须用个人 PAT
         run: |
-          TARGET_REPO="MooChee-lee/Daily-Quests"  # 替换为你想 review 的仓库
+          TARGET_REPO="MooChee-lee/Daily Quests"  # 替换为你要 review 的开源仓库
           PR_LIST=$(gh pr list --state open --repo $TARGET_REPO --json number -q '.[].number')
 
           if [ -z "$PR_LIST" ]; then
@@ -96,5 +99,3 @@ jobs:
           PR_NUM=$(echo "$PR_LIST" | shuf -n1)
           echo "准备对 PR #$PR_NUM 进行自动 Review"
           gh pr review $PR_NUM --approve --body "🤖 自动 Review: 看起来不错！"
-        env:
-          GH_TOKEN: ${{ secrets.GH_PAT }}
