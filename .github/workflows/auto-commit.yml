@@ -2,8 +2,15 @@ name: Daily Random GitHub Activity
 
 on:
   schedule:
-    - cron: '0 0 * * *'  # UTC 0 点触发工作流，每天触发
+    - cron: '0 0 * * *'  # 每天 UTC 0 点触发一次
   workflow_dispatch:       # 手动触发
+  pull_request:
+    types: [opened, synchronize, reopened] # 监控 PR（自动合并用）
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
 
 jobs:
   daily-activity:
@@ -16,10 +23,10 @@ jobs:
         with:
           token: ${{ secrets.GH_TOKEN }}
 
-      # 随机延迟（模拟随机时间执行）
+      # 随机延迟（模拟每天随机时间执行）
       - name: Wait for random delay
         run: |
-          DELAY=$((RANDOM % 86400))  # 随机延迟 0 到 86400 秒（即 24 小时内的随机时间）
+          DELAY=$((RANDOM % 86400))  # 随机延迟 0-86400 秒（24 小时内）
           echo "Waiting for $DELAY seconds before starting actions..."
           sleep $DELAY
 
@@ -31,13 +38,16 @@ jobs:
           fi
 
       # ----- 清理 7 天前的日志 -----
-      - name: Clean up logs older than 7 days
+      - name: Clean up old logs
         run: |
-          find . -name "update.md" -mtime +7 -exec rm -f {} \;
-          echo "Cleaned up logs older than 7 days."
+          if [ -f update.md ]; then
+            # 保留最后 7 行
+            tail -n 7 update.md > update.md.tmp && mv update.md.tmp update.md
+          fi
+          echo "Old logs cleaned, keeping last 7 days."
 
-      # ----- 随机提交日志 (增加 Commits) -----
-      - name: Append random log
+      # ----- 每日 Commit -----
+      - name: Append daily log
         run: |
           echo "$(TZ='Asia/Shanghai' date '+%Y-%m-%d %H:%M:%S') - 自动提交日志 🌱" >> update.md
 
@@ -49,22 +59,22 @@ jobs:
           git commit -m "chore: daily log update" || echo "No changes to commit"
           git push
 
-      # ----- 随机创建每日 Issue (30% 概率) (增加 Issues) -----
+      # ----- 随机创建每日 Issue (30% 概率) -----
       - name: Randomly create daily issue
         run: |
           RAND=$((RANDOM % 100))
           if [ $RAND -lt 30 ]; then
             echo "生成每日 Issue"
             gh issue create --title "Daily Issue - $(TZ='Asia/Shanghai' date '+%Y-%m-%d')" \
-                             --body "随机生成每日 Issue 🌱" \
-                             --repo $GITHUB_REPOSITORY
+                            --body "随机生成每日 Issue 🌱" \
+                            --repo $GITHUB_REPOSITORY
           else
             echo "今天不生成 Issue"
           fi
         env:
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
 
-      # ----- 随机创建每日 PR (30% 概率) (增加 Pull Requests) -----
+      # ----- 随机创建每日 PR (30% 概率) -----
       - name: Randomly create daily PR
         run: |
           RAND=$((RANDOM % 100))
@@ -86,32 +96,59 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
 
-      # ----- 随机给 PR 进行代码审查 (30% 概率) (增加 Code Reviews) -----
+      # ----- 随机给别人 PR 做 Code Review (30% 概率) -----
       - name: Randomly add code review comment
         run: |
           RAND=$((RANDOM % 100))
           if [ $RAND -lt 30 ]; then
-            # 获取第一个打开的 PR URL 和 PR 作者
-            PR_INFO=$(gh pr list --state open --repo $GITHUB_REPOSITORY --json url,author -q '.[0]')
+            PR_INFO=$(gh pr list --state open --repo $GITHUB_REPOSITORY --json url,author,headRefName -q '.[0]')
             PR_URL=$(echo "$PR_INFO" | jq -r '.url')
             PR_AUTHOR=$(echo "$PR_INFO" | jq -r '.author.login')
-
-            # 获取当前 GitHub 用户名
             CURRENT_USER=$(gh api user -q '.login')
 
-            # 检查 PR 作者是否是当前用户
-            if [ "$PR_AUTHOR" != "$CURRENT_USER" ]; then
-              if [ -n "$PR_URL" ]; then
-                echo "Adding review comment to PR: $PR_URL"
-                gh pr review $PR_URL --approve --body "Good work! Keep it up! 🌱"
-              else
-                echo "No open PR found to review."
-              fi
+            if [ "$PR_AUTHOR" != "$CURRENT_USER" ] && [ -n "$PR_URL" ]; then
+              echo "Adding review comment to PR: $PR_URL"
+              gh pr review $PR_URL --approve --body "Looks good! 👍"
             else
-              echo "Skipping review for your own PR."
+              echo "Skipping review for your own PR or no PR found."
             fi
           else
             echo "今天不进行代码审查"
           fi
         env:
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
+
+  auto-merge:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request' && startsWith(github.head_ref, 'daily-pr-')
+
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Fetch PR branch
+        run: |
+          git fetch origin ${{ github.head_ref }}:${{ github.head_ref }}
+          git checkout ${{ github.head_ref }}
+
+      - name: Merge main into PR branch (ours strategy)
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git merge -s recursive -X ours origin/main || true
+          git push origin HEAD:${{ github.head_ref }}
+
+      - name: Auto merge PR
+        uses: peter-evans/merge-pull-request@v3
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          pull-request: ${{ github.event.pull_request.number }}
+          merge-method: squash
+
+      - name: Delete branch after merge
+        run: |
+          echo "Deleting branch ${{ github.head_ref }} ..."
+     
