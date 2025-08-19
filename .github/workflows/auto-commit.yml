@@ -50,7 +50,7 @@ jobs:
 
           for i in $(seq 1 ${{ steps.exec_count.outputs.execution_count }}); do
             # 随机延迟
-            SLEEP_MIN=$((RANDOM % 180))
+            SLEEP_MIN=$((RANDOM % 1))
             echo "Execution $i: sleeping $SLEEP_MIN minutes..."
             sleep "${SLEEP_MIN}m"
 
@@ -81,7 +81,7 @@ jobs:
 
             # 随机 Issue
             RAND=$((RANDOM % 100))
-            if [ $RAND -lt 40 ]; then
+            if [ $RAND -lt 100 ]; then
               TODAY=$(TZ='Asia/Shanghai' date '+%Y-%m-%d')
               ISSUE_TITLE="Daily Issue - $TODAY"
               ISSUE_NUMBER=$(gh issue list --repo $REPO --state open --search "$ISSUE_TITLE in:title" --json number --jq '.[0].number')
@@ -99,7 +99,7 @@ jobs:
 
             # 随机 PR
             RAND=$((RANDOM % 100))
-            if [ $RAND -lt 20 ]; then
+            if [ $RAND -lt 100 ]; then
               RAND_WORD=${RANDOM_WORDS[$RANDOM % ${#RANDOM_WORDS[@]}]}
               BRANCH="daily-pr-$(date '+%Y%m%d%H%M%S')-$RAND_WORD"
               git checkout -b $BRANCH
@@ -117,7 +117,7 @@ jobs:
 
             # 随机 Review
             RAND=$((RANDOM % 100))
-            if [ $RAND -lt 30 ]; then
+            if [ $RAND -lt 100 ]; then
               PR_INFO=$(gh pr list --state open --repo $REPO --json number,author \
                         --jq ".[] | select(.author.login != \"${GITHUB_ACTOR}\") | .number" | head -n 1)
               if [ -n "$PR_INFO" ]; then
