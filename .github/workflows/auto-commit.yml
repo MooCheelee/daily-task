@@ -19,7 +19,7 @@ jobs:
       # 随机延迟（模拟随机时间执行）
       - name: Wait for random delay
         run: |
-          DELAY=$((RANDOM % 1)  # 随机延迟 0 到 86400 秒（即 24 小时内的随机时间）
+          DELAY=$((RANDOM % 86400))  # 随机延迟 0 到 86400 秒（即 24 小时内的随机时间）
           echo "Waiting for $DELAY seconds before starting actions..."
           sleep $DELAY
 
@@ -49,11 +49,11 @@ jobs:
           git commit -m "chore: daily log update" || echo "No changes to commit"
           git push
 
-      # ----- 随机创建每日 Issue (30% 概率) (增加 Issues) -----
+      # ----- 随机创建每日 Issue (40% 概率) (增加 Issues) -----
       - name: Randomly create daily issue
         run: |
           RAND=$((RANDOM % 100))
-          if [ $RAND -lt 100 ]; then
+          if [ $RAND -lt 40 ]; then
             echo "生成每日 Issue"
             gh issue create --title "Daily Issue - $(TZ='Asia/Shanghai' date '+%Y-%m-%d')" \
                              --body "随机生成每日 Issue 🌱" \
@@ -64,11 +64,11 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
 
-      # ----- 随机创建每日 PR (30% 概率) (增加 Pull Requests) -----
+      # ----- 随机创建每日 PR (20% 概率) (增加 Pull Requests) -----
       - name: Randomly create daily PR
         run: |
           RAND=$((RANDOM % 100))
-          if [ $RAND -lt 100 ]; then
+          if [ $RAND -lt 20 ]; then
             BRANCH="daily-pr-$(date '+%Y%m%d%H%M%S')"
             git checkout -b $BRANCH
             echo "$(TZ='Asia/Shanghai' date '+%Y-%m-%d %H:%M:%S') - 自动 PR 日志 🌱" >> update.md
@@ -90,7 +90,7 @@ jobs:
       - name: Randomly add code review comment
         run: |
           RAND=$((RANDOM % 100))
-          if [ $RAND -lt 100 ]; then
+          if [ $RAND -lt 30 ]; then
             # 获取第一个打开的 PR URL 和 PR 作者
             PR_INFO=$(gh pr list --state open --repo $GITHUB_REPOSITORY --json url,author -q '.[0]')
             PR_URL=$(echo "$PR_INFO" | jq -r '.url')
