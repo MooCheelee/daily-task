@@ -89,15 +89,16 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GH_PAT }}
         run: |
-          TARGET_REPO="MooChee-lee/Daily Quests"  # 替换为你要 review 的开源仓库
-          PR_LIST=$(gh pr list --state open --repo "$TARGET_REPO" --json number -q '.[].number'')
+  
+         TARGET_REPO="MooChee-lee/Daily Quests"
 
-          if [ -z "$PR_LIST" ]; then
-            echo "没有找到可 review 的 PR"
-            exit 0
+         PR_LIST=$(gh pr list --state open --repo "$TARGET_REPO" --json number -q '.[].number')
+
+         if [ -z "$PR_LIST" ]; then
+         echo "没有找到可 review 的 PR"
+         exit 0
           fi
 
-          # 随机选一个 PR
-          PR_NUM=$(echo "$PR_LIST" | shuf -n1)
-          echo "准备对 PR #$PR_NUM 进行自动 Review"
-          gh pr review $PR_NUM --approve --body "🤖 自动 Review: 看起来不错！"
+         PR_NUM=$(echo "$PR_LIST" | shuf -n1)
+         echo "准备对 PR #$PR_NUM 进行自动 Review"
+         gh pr review "$PR_NUM" --approve --body "🤖 自动 Review: 看起来不错！"
