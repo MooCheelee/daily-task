@@ -131,12 +131,10 @@ jobs:
       - name: Auto Approve PRs using B
         run: |
           echo "Fetching open PRs not by B..."
-          export GH_TOKEN=${{ secrets.PAT_B }}
-
-          PR_LIST=$(gh pr list --state open --repo $REPO --json number,author \
+          PR_LIST=$(GH_TOKEN=${{ secrets.PAT_B }} gh pr list --state open --repo $REPO --json number,author \
                     --jq ".[] | select(.author.login != \"MooChee-lee\") | .number")
 
           for PR in $PR_LIST; do
             echo "Approving PR #$PR with B..."
-            gh pr review $PR --approve --body "👍 自动互相 Code Review" --repo $REPO
+            GH_TOKEN=${{ secrets.PAT_B }} gh pr review $PR --approve --body "👍 自动互相 Code Review" --repo $REPO
           done
