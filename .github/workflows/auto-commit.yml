@@ -90,7 +90,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GH_PAT }}
         run: |
   
-         TARGET_REPO="MooChee-lee/Daily Quests"
+         TARGET_REPO="MooChee-lee/Daily-Quests"
 
          PR_LIST=$(gh pr list --state open --repo "$TARGET_REPO" --json number -q '.[].number')
 
