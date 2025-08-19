@@ -137,7 +137,7 @@ jobs:
         run: |
           echo "Fetching open PRs not by B..."
           PR_LIST=$(gh pr list --state open --repo $REPO --json number,author \
-                    --jq ".[] | select(.author.login != \"B账号用户名\") | .number")
+                    --jq ".[] | select(.author.login != \"MooChee-lee\") | .number")
           for PR in $PR_LIST; do
             echo "Approving PR #$PR with B..."
             gh pr review $PR --approve --body "👍 自动互相 Code Review" --repo $REPO
