@@ -2,76 +2,68 @@ name: Daily Random GitHub Activity
 
 on:
   schedule:
-    - cron: '0 0 * * *'   # UTC 0 点触发（北京时间 8 点）
-  workflow_dispatch:
+    - cron: '0 0 * * *'   # 每天 UTC 0点触发
+  workflow_dispatch:       # 支持手动触发
 
 jobs:
   daily-activity:
     runs-on: ubuntu-latest
 
     steps:
-      # --- 拉取仓库 (切换到 main，避免 detached HEAD) ---
+      # 拉取仓库
       - name: Checkout repo
         uses: actions/checkout@v3
         with:
-          ref: main
           token: ${{ secrets.GH_TOKEN }}
 
-      # --- 随机延迟，模拟不同时段执行 ---
+      # 随机延迟（0~24小时内随机时间执行）
       - name: Wait for random delay
         run: |
           DELAY=$((RANDOM % 1))
-          echo "Waiting for $DELAY seconds..."
+          echo "Waiting $DELAY seconds..."
           sleep $DELAY
 
-      # --- 确保日志文件存在 ---
-      - name: Ensure logs exist
+      # 确保 update.md 文件存在
+      - name: Ensure update.md exists
         run: |
-          [ ! -f update.md ] && echo "# Daily Activity Log" > update.md
-          [ ! -f workflow-log.txt ] && echo "=== Workflow Log ===" > workflow-log.txt
+          if [ ! -f update.md ]; then
+            echo "# 📅 Daily GitHub Activity Log" > update.md
+            echo "" >> update.md
+          fi
 
-      # --- 删除 7 天前的日志 (只清 workflow-log.txt，不删 update.md 总结) ---
-      - name: Clean workflow-log.txt (7 days)
+      # 随机提交日志
+      - name: Append random log
         run: |
-          tail -n 500 workflow-log.txt > workflow-log.tmp || true
-          mv workflow-log.tmp workflow-log.txt
+          echo "## $(TZ='Asia/Shanghai' date '+%Y-%m-%d')" >> update.md
+          echo "- 📝 Commit: 自动提交日志 🌱" >> update.md
+          echo "" >> update.md
 
-      # --- Commit (必做，每天都会有) ---
-      - name: Daily commit
+      - name: Commit and push log
         run: |
-          NOW=$(TZ='Asia/Shanghai' date '+%Y-%m-%d %H:%M:%S')
-          DAY=$(TZ='Asia/Shanghai' date '+%Y-%m-%d')
-
-          echo "$NOW - Commit pushed 🌱" >> workflow-log.txt
-
-          echo "## $DAY" >> update.md
-          echo "- ⏰ Commit: 自动提交日志 🌱" >> update.md
-
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add update.md workflow-log.txt
+          git add update.md
           git commit -m "chore: daily log update" || echo "No changes"
-          git push origin main
+          git push origin HEAD:main
 
-      # --- 随机 Issue (30%) ---
+      # 随机 Issue (30%)
       - name: Random Issue
         run: |
           RAND=$((RANDOM % 100))
           DAY=$(TZ='Asia/Shanghai' date '+%Y-%m-%d')
           if [ $RAND -lt 100 ]; then
-            ISSUE_URL=$(gh issue create --title "Daily Issue - $DAY" \
+            ISSUE_URL=$(gh issue create \
+                        --title "Daily Issue - $DAY" \
                         --body "随机生成每日 Issue 🌱" \
-                        --repo $GITHUB_REPOSITORY --json url -q '.url')
-            echo "$(date) - Created Issue $ISSUE_URL" >> workflow-log.txt
+                        --repo $GITHUB_REPOSITORY | tail -n 1)
             echo "- 🐛 Issue: $ISSUE_URL" >> update.md
           else
-            echo "$(date) - Skipped Issue" >> workflow-log.txt
             echo "- 🐛 Issue: 无" >> update.md
           fi
         env:
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
 
-      # --- 随机 PR (30%) ---
+      # 随机 PR (30%)
       - name: Random PR
         run: |
           RAND=$((RANDOM % 100))
@@ -79,50 +71,44 @@ jobs:
           if [ $RAND -lt 100 ]; then
             BRANCH="daily-pr-$(date '+%Y%m%d%H%M%S')"
             git checkout -b $BRANCH
-            echo "$(TZ='Asia/Shanghai' date '+%Y-%m-%d %H:%M:%S') - 自动 PR 日志 🌱" >> update.md
+            echo "- 🔀 PR Commit: 自动 PR 日志 🌱" >> update.md
             git add update.md
             git commit -m "chore: daily PR update"
             git push origin $BRANCH
-
-            PR_URL=$(gh pr create --title "Daily PR - $DAY" \
+            PR_URL=$(gh pr create \
+                      --title "Daily PR - $DAY" \
                       --body "随机生成每日 PR 🌱" \
                       --base main --head $BRANCH \
-                      --repo $GITHUB_REPOSITORY --json url -q '.url')
-
-            echo "$(date) - Created PR $PR_URL" >> workflow-log.txt
+                      --repo $GITHUB_REPOSITORY | tail -n 1)
             echo "- 🔀 PR: $PR_URL" >> update.md
-
-            # 自动合并 PR
-            gh pr merge "$PR_URL" --squash --delete-branch --admin
-            echo "$(date) - Auto merged $PR_URL" >> workflow-log.txt
           else
-            echo "$(date) - Skipped PR" >> workflow-log.txt
             echo "- 🔀 PR: 无" >> update.md
           fi
         env:
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
 
-      # --- 随机 Code Review (30%) ---
+      # 随机 Code Review (30%)
       - name: Random Review
         run: |
           RAND=$((RANDOM % 100))
           if [ $RAND -lt 100 ]; then
-            PR_INFO=$(gh pr list --state open --repo $GITHUB_REPOSITORY --json url,author -q '.[0]')
-            PR_URL=$(echo "$PR_INFO" | jq -r '.url')
-            PR_AUTHOR=$(echo "$PR_INFO" | jq -r '.author.login')
-            CURRENT_USER=$(gh api user -q '.login')
-
-            if [ -n "$PR_URL" ] && [ "$PR_AUTHOR" != "$CURRENT_USER" ]; then
-              gh pr review "$PR_URL" --approve --body "Good work! Keep it up! 🌱"
-              echo "$(date) - Reviewed PR $PR_URL" >> workflow-log.txt
-              echo "- 👀 Review: Reviewed $PR_URL 👍" >> update.md
+            PR_URL=$(gh pr list --state open --repo $GITHUB_REPOSITORY | head -n 1 | awk '{print $1}')
+            if [ -n "$PR_URL" ]; then
+              echo "Reviewing PR #$PR_URL"
+              gh pr review $PR_URL --approve --body "LGTM 👍 自动审核"
+              echo "- 👀 Review: 已审核 PR #$PR_URL" >> update.md
             else
-              echo "$(date) - Skipped Review (no suitable PR)" >> workflow-log.txt
-              echo "- 👀 Review: 无" >> update.md
+              echo "- 👀 Review: 无可用 PR" >> update.md
             fi
           else
-            echo "$(date) - Skipped Review" >> workflow-log.txt
-            echo "- 👀 Review: 无" >> update.md
+            echo "- 👀 Review: 未执行" >> update.md
           fi
         env:
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
+
+      # 更新 update.md (把 Issue/PR/Review 写进去)
+      - name: Final Commit
+        run: |
+          git add update.md
+          git commit -m "chore: update daily log (issues/pr/reviews)" || echo "No changes"
+          git push origin HEAD:main
