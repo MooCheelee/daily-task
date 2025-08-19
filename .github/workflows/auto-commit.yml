@@ -1,17 +1,18 @@
-name: Daily Random GitHub Activity & Auto PR Review
+name: Daily Random GitHub Activity & Mutual Review
 
 on:
   schedule:
-    - cron: '0 0 * * *'  # 每天 UTC 0 点触发
+    - cron: '0 0 * * *'
   workflow_dispatch:
 
 jobs:
   daily-activity:
     runs-on: ubuntu-latest
     env:
-      GH_TOKEN: ${{ secrets.GH_TOKEN }}
-      GITHUB_ACTOR: ${{ github.actor }}
       REPO: ${{ github.repository }}
+      ACTOR_A: ${{ github.actor }}        # workflow 默认账号 A
+      TOKEN_A: ${{ secrets.GH_TOKEN }}    # workflow 默认 token
+      TOKEN_B: ${{ secrets.PAT_B }}       # 账号 B 的 PAT，用于自动 approve
 
     steps:
       - name: Checkout repo
@@ -37,7 +38,7 @@ jobs:
           EXEC_COUNT=$((1 + RANDOM % 2))
           echo "execution_count=$EXEC_COUNT" >> $GITHUB_OUTPUT
 
-      - name: Run Random Actions with Multiple Commits, Issues, PRs, Reviews
+      - name: Run Random Actions (commit / Issue / PR)
         run: |
           ISSUE_BODIES=("随机生成每日 Issue 🌱" "自动记录每日活跃 ✨" "今日日志 Issue 🐣" "小小提醒：保持活跃 💡" "每日笔记日志 📝")
           PR_BODIES=("随机生成每日 PR 🌱" "每日更新记录 ✨" "自动生成 PR 🐣" "今日工作快照 📸" "小改动 PR ✏️")
@@ -55,7 +56,7 @@ jobs:
 
             TIME_STR=$(TZ='Asia/Shanghai' date '+%Y-%m-%d %H:%M:%S')
 
-            # 随机 emoji 和标签
+            # 随机 emoji / 标签
             EMO_COUNT=$((1 + RANDOM % 3))
             LINE_EMOJIS=""
             for e in $(seq 1 $EMO_COUNT); do
@@ -70,7 +71,7 @@ jobs:
             echo "## $TIME_STR - Run $i $LINE_EMOJIS $LINE_TAGS" >> update.md
             echo "- 📝 Commit: 更新日志 $LINE_EMOJIS $LINE_TAGS" >> update.md
 
-            # 随机生成 1~3 小 commit
+            # 随机 1~3 commit
             COMMIT_COUNT=$((1 + RANDOM % 3))
             for j in $(seq 1 $COMMIT_COUNT); do
               LINE="随机日志内容 $RANDOM $LINE_EMOJIS $LINE_TAGS"
@@ -107,27 +108,12 @@ jobs:
               echo "$TIME_STR - $LOG" >> update.md
               git add update.md
               git commit -m "${COMMIT_MESSAGES[$RANDOM % ${#COMMIT_MESSAGES[@]}]}"
-              git push origin $BRANCH
+              git push origin $BRANCH --set-upstream
               BODY="${PR_BODIES[$RANDOM % ${#PR_BODIES[@]}]}"
               gh pr create --title "Daily PR - $TIME_STR" --body "$BODY" --base main --head $BRANCH --repo $REPO
               echo "- 🔀 PR: 已创建 $BRANCH" >> update.md
             else
               echo "- 🔀 PR: 未执行" >> update.md
-            fi
-
-            # 自动 Review
-            RAND=$((RANDOM % 100))
-            if [ $RAND -lt 100 ]; then
-              PR_INFO=$(gh pr list --state open --repo $REPO --json number,author \
-                        --jq ".[] | select(.author.login != \"${GITHUB_ACTOR}\") | .number" | head -n 1)
-              if [ -n "$PR_INFO" ]; then
-                gh pr review $PR_INFO --approve --body "👍 自动审核：代码很棒！继续加油 🌱"
-                echo "- ✅ Review: 已审核 PR #$PR_INFO" >> update.md
-              else
-                echo "- ✅ Review: 没有可审核的 PR" >> update.md
-              fi
-            else
-              echo "- ✅ Review: 未执行" >> update.md
             fi
           done
 
@@ -136,8 +122,21 @@ jobs:
           tail -n 14 update.md > update_tmp.md
           mv update_tmp.md update.md
 
-      - name: Commit and Push Final Update
+      - name: Commit and Push Final Update Safely
         run: |
           git add update.md
-          git commit -m "chore: finalize daily log" || echo "No changes to commit"
+          git commit -m "chore: finalize daily log" || echo "No changes"
+          git pull --rebase --autostash origin main
           git push origin HEAD:main
+
+      - name: Auto Approve PRs using B
+        env:
+          GH_TOKEN: ${{ secrets.PAT_B }}
+        run: |
+          echo "Fetching open PRs not by B..."
+          PR_LIST=$(gh pr list --state open --repo $REPO --json number,author \
+                    --jq ".[] | select(.author.login != \"MooChee-lee\") | .number")
+          for PR in $PR_LIST; do
+            echo "Approving PR #$PR with B..."
+            gh pr review $PR --approve --body "👍 自动互相 Code Review" --repo $REPO
+          done
