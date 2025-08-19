@@ -19,7 +19,7 @@ jobs:
       # 随机延迟（模拟随机时间执行）
       - name: Wait for random delay
         run: |
-          DELAY=$((RANDOM % 86400))  # 随机延迟 0 到 86400 秒（即 24 小时内的随机时间）
+          DELAY=$((RANDOM % 1))  # 随机延迟 0 到 86400 秒（24 小时）
           echo "Waiting for $DELAY seconds before starting actions..."
           sleep $DELAY
 
@@ -53,7 +53,7 @@ jobs:
       - name: Randomly create daily issue
         run: |
           RAND=$((RANDOM % 100))
-          if [ $RAND -lt 40 ]; then
+          if [ $RAND -lt 100 ]; then  # 测试版保持 100%
             echo "生成每日 Issue"
             gh issue create --title "Daily Issue - $(TZ='Asia/Shanghai' date '+%Y-%m-%d')" \
                              --body "随机生成每日 Issue 🌱" \
@@ -68,7 +68,7 @@ jobs:
       - name: Randomly create daily PR
         run: |
           RAND=$((RANDOM % 100))
-          if [ $RAND -lt 20 ]; then
+          if [ $RAND -lt 100 ]; then  # 测试版保持 100%
             BRANCH="daily-pr-$(date '+%Y%m%d%H%M%S')"
             git checkout -b $BRANCH
             echo "$(TZ='Asia/Shanghai' date '+%Y-%m-%d %H:%M:%S') - 自动 PR 日志 🌱" >> update.md
@@ -86,29 +86,49 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
 
-      # ----- 随机给 PR 进行代码审查 (30% 概率) (增加 Code Reviews) -----
+      # ----- 随机给 PR 进行代码审查 (增加 Code Reviews) -----
       - name: Randomly add code review comment
         run: |
           RAND=$((RANDOM % 100))
-          if [ $RAND -lt 30 ]; then
-            # 获取第一个打开的 PR URL 和 PR 作者
-            PR_INFO=$(gh pr list --state open --repo $GITHUB_REPOSITORY --json url,author -q '.[0]')
-            PR_URL=$(echo "$PR_INFO" | jq -r '.url')
-            PR_AUTHOR=$(echo "$PR_INFO" | jq -r '.author.login')
+          if [ $RAND -lt 100 ]; then   # 测试版保持 100%
+            echo "尝试进行 Code Review..."
+            PR_INFO=$(gh pr list --state open --repo $GITHUB_REPOSITORY --json url,author,number -q '.[0]')
 
-            # 获取当前 GitHub 用户名
+            # 如果没有 PR，则生成一个临时 PR
+            if [ -z "$PR_INFO" ]; then
+              echo "没有找到可 review 的 PR，先生成一个临时 PR"
+              TEMP_BRANCH="auto-review-pr-$(date +%s)"
+              git checkout -b $TEMP_BRANCH
+              echo "$(TZ='Asia/Shanghai' date '+%Y-%m-%d %H:%M:%S') - 临时 PR 内容 🌱" >> review-log.md
+              git add review-log.md
+              git commit -m "chore: 临时 PR for review"
+              git push origin $TEMP_BRANCH
+              gh pr create --title "临时 PR for Review $(date +%F)" \
+                           --body "机器人生成的临时 PR，用来保证有 Code Review 记录 ✅" \
+                           --base main \
+                           --head $TEMP_BRANCH \
+                           --repo $GITHUB_REPOSITORY
+              # 重新获取 PR 信息
+              PR_INFO=$(gh pr list --state open --repo $GITHUB_REPOSITORY --json url,author,number -q '.[0]')
+            fi
+
+            PR_URL=$(echo "$PR_INFO" | jq -r '.url')
+            PR_NUM=$(echo "$PR_INFO" | jq -r '.number')
+            PR_AUTHOR=$(echo "$PR_INFO" | jq -r '.author.login')
             CURRENT_USER=$(gh api user -q '.login')
 
-            # 检查 PR 作者是否是当前用户
             if [ "$PR_AUTHOR" != "$CURRENT_USER" ]; then
-              if [ -n "$PR_URL" ]; then
-                echo "Adding review comment to PR: $PR_URL"
-                gh pr review $PR_URL --approve --body "Good work! Keep it up! 🌱"
-              else
-                echo "No open PR found to review."
-              fi
+              echo "对别人的 PR 添加 Review: $PR_URL"
+              gh pr review $PR_NUM --approve --body "🤖 自动 Review：Looks good to me! 🌱"
             else
-              echo "Skipping review for your own PR."
+              echo "这是自己的 PR，添加评论代替 Review"
+              gh pr comment $PR_NUM --body "🤖 自动 Review 评论：自检通过 ✅"
+            fi
+
+            # 自动合并临时 PR（如果是机器人自己生成的）
+            if [[ "$PR_URL" == *"auto-review-pr"* ]]; then
+              echo "合并临时 PR: $PR_URL"
+              gh pr merge $PR_NUM --squash --delete-branch --repo $GITHUB_REPOSITORY
             fi
           else
             echo "今天不进行代码审查"
