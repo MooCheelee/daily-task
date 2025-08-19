@@ -2,27 +2,28 @@ name: Daily Random GitHub Activity
 
 on:
   schedule:
-    - cron: '0 0 * * *'  # 每天 UTC 0 点触发（北京时间早上 8 点）
-  workflow_dispatch:       # 允许手动触发
+    - cron: '0 0 * * *'  # UTC 0 点触发
+  workflow_dispatch:
 
 jobs:
   daily-activity:
     runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.GH_TOKEN }}
+      GITHUB_ACTOR: ${{ github.actor }}
+      REPO: ${{ github.repository }}
 
     steps:
-      # 拉取仓库
       - name: Checkout repo
         uses: actions/checkout@v3
         with:
           token: ${{ secrets.GH_TOKEN }}
 
-      # 设置 Git 用户信息
       - name: Setup Git
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-      # 确保 update.md 文件存在
       - name: Ensure update.md exists
         run: |
           if [ ! -f update.md ]; then
@@ -30,88 +31,112 @@ jobs:
             echo "" >> update.md
           fi
 
-      # 追加日志（每日必定有 Commit）
-      - name: Append daily log
+      - name: Determine Random Execution Count
+        id: exec_count
         run: |
-          echo "## $(TZ='Asia/Shanghai' date '+%Y-%m-%d %H:%M:%S')" >> update.md
-          echo "- 📝 Commit: 更新日志" >> update.md
+          EXEC_COUNT=$((1 + RANDOM % 2))
+          echo "execution_count=$EXEC_COUNT" >> $GITHUB_OUTPUT
 
-      # 提交日志
-      - name: Commit and push log
+      - name: Run Random Actions with Multiple Commits
         run: |
-          git add update.md
-          git commit -m "chore: daily log update" || echo "No changes to commit"
-          git push origin HEAD:main
+          # 模板
+          ISSUE_BODIES=("随机生成每日 Issue 🌱" "自动记录每日活跃 ✨" "今日日志 Issue 🐣" "小小提醒：保持活跃 💡" "每日笔记日志 📝")
+          PR_BODIES=("随机生成每日 PR 🌱" "每日更新记录 ✨" "自动生成 PR 🐣" "今日工作快照 📸" "小改动 PR ✏️")
+          PR_LOGS=("自动 PR 日志 🌱" "每日更新记录 ✨" "随机生成 PR 🐣" "小小提交 🌸" "今日进度 🏃‍♂️")
+          COMMIT_MESSAGES=("更新文档 ✏️" "修复小 bug 🐛" "添加测试 ✅" "优化日志输出 📜" "小修改 🌟")
+          EMOJIS=("🌱" "✨" "🐣" "💡" "📜" "📸" "🌸" "🏃‍♂️" "🐛" "🌟")
+          TAGS=("#note" "#daily" "#update" "#bugfix" "#✨" "#log" "#code" "#review")
+          RANDOM_WORDS=("sun" "moon" "star" "tree" "flower" "code" "log" "note" "spark" "leaf")
 
-      # 随机创建或评论 Issue (30%)
-      - name: Random Daily Issue or Comment
-        run: |
-          RAND=$((RANDOM % 100))
-          if [ $RAND -lt 100 ]; then
-            TODAY=$(TZ='Asia/Shanghai' date '+%Y-%m-%d')
-            ISSUE_TITLE="Daily Issue - $TODAY"
+          for i in $(seq 1 ${{ steps.exec_count.outputs.execution_count }}); do
+            # 随机延迟
+            SLEEP_MIN=$((RANDOM % 180))
+            echo "Execution $i: sleeping $SLEEP_MIN minutes..."
+            sleep "${SLEEP_MIN}m"
 
-            ISSUE_NUMBER=$(gh issue list --repo $GITHUB_REPOSITORY --state open --search "$ISSUE_TITLE in:title" --json number --jq '.[0].number')
+            TIME_STR=$(TZ='Asia/Shanghai' date '+%Y-%m-%d %H:%M:%S')
+            # 随机 emoji 和标签
+            EMO_COUNT=$((1 + RANDOM % 3))
+            LINE_EMOJIS=""
+            for e in $(seq 1 $EMO_COUNT); do
+              LINE_EMOJIS="$LINE_EMOJIS ${EMOJIS[$RANDOM % ${#EMOJIS[@]}]}"
+            done
+            TAG_COUNT=$((1 + RANDOM % 2))
+            LINE_TAGS=""
+            for t in $(seq 1 $TAG_COUNT); do
+              LINE_TAGS="$LINE_TAGS ${TAGS[$RANDOM % ${#TAGS[@]}]}"
+            done
 
-            if [ -z "$ISSUE_NUMBER" ]; then
-              gh issue create --title "$ISSUE_TITLE" \
-                              --body "随机生成每日 Issue 🌱" \
-                              --repo $GITHUB_REPOSITORY
-              echo "- 🆕 Issue: 已创建 $ISSUE_TITLE" >> update.md
+            echo "## $TIME_STR - Run $i $LINE_EMOJIS $LINE_TAGS" >> update.md
+            echo "- 📝 Commit: 更新日志 $LINE_EMOJIS $LINE_TAGS" >> update.md
+
+            # 随机生成 1~3 小 commit，全部写入 update.md
+            COMMIT_COUNT=$((1 + RANDOM % 3))
+            for j in $(seq 1 $COMMIT_COUNT); do
+              LINE="随机日志内容 $RANDOM $LINE_EMOJIS $LINE_TAGS"
+              echo "$LINE" >> update.md
+              git add update.md
+              git commit -m "${COMMIT_MESSAGES[$RANDOM % ${#COMMIT_MESSAGES[@]}]}"
+            done
+
+            # 随机 Issue
+            RAND=$((RANDOM % 100))
+            if [ $RAND -lt 40 ]; then
+              TODAY=$(TZ='Asia/Shanghai' date '+%Y-%m-%d')
+              ISSUE_TITLE="Daily Issue - $TODAY"
+              ISSUE_NUMBER=$(gh issue list --repo $REPO --state open --search "$ISSUE_TITLE in:title" --json number --jq '.[0].number')
+              if [ -z "$ISSUE_NUMBER" ]; then
+                BODY="${ISSUE_BODIES[$RANDOM % ${#ISSUE_BODIES[@]}]}"
+                gh issue create --title "$ISSUE_TITLE" --body "$BODY" --repo $REPO
+                echo "- 🆕 Issue: 已创建 $ISSUE_TITLE" >> update.md
+              else
+                gh issue comment $ISSUE_NUMBER --body "🤖 自动评论：每日活跃记录 ✨"
+                echo "- 💬 Issue: 已评论 #$ISSUE_NUMBER" >> update.md
+              fi
             else
-              gh issue comment $ISSUE_NUMBER --body "🤖 自动评论：每日活跃记录 ✨"
-              echo "- 💬 Issue: 已评论 #$ISSUE_NUMBER" >> update.md
+              echo "- 🆕 Issue: 未执行" >> update.md
             fi
-          else
-            echo "- 🆕 Issue: 未执行" >> update.md
-          fi
-        env:
-          GH_TOKEN: ${{ secrets.GH_TOKEN }}
 
-      # 随机创建每日 PR (30%)
-      - name: Random Daily PR
-        run: |
-          RAND=$((RANDOM % 100))
-          if [ $RAND -lt 100 ]; then
-            BRANCH="daily-pr-$(date '+%Y%m%d%H%M%S')"
-            git checkout -b $BRANCH
-            echo "$(TZ='Asia/Shanghai' date '+%Y-%m-%d %H:%M:%S') - 自动 PR 日志 🌱" >> update.md
-            git add update.md
-            git commit -m "chore: daily PR update"
-            git push origin $BRANCH
-
-            gh pr create --title "Daily PR - $(TZ='Asia/Shanghai' date '+%Y-%m-%d')" \
-                         --body "随机生成每日 PR 🌱" \
-                         --base main \
-                         --head $BRANCH \
-                         --repo $GITHUB_REPOSITORY
-            echo "- 🔀 PR: 已创建 $BRANCH" >> update.md
-          else
-            echo "- 🔀 PR: 未执行" >> update.md
-          fi
-        env:
-          GH_TOKEN: ${{ secrets.GH_TOKEN }}
-
-      # 随机给别人 PR 做 Code Review (30%)
-      - name: Random Code Review
-        run: |
-          RAND=$((RANDOM % 100))
-          if [ $RAND -lt 100 ]; then
-            PR_INFO=$(gh pr list --state open --repo $GITHUB_REPOSITORY --json number,author --jq '.[] | select(.author.login != "${{ github.actor }}") | .number' | head -n 1)
-            if [ -n "$PR_INFO" ]; then
-              gh pr review $PR_INFO --approve --body "👍 自动审核：代码很棒！继续加油 🌱"
-              echo "- ✅ Review: 已审核 PR #$PR_INFO" >> update.md
+            # 随机 PR
+            RAND=$((RANDOM % 100))
+            if [ $RAND -lt 20 ]; then
+              RAND_WORD=${RANDOM_WORDS[$RANDOM % ${#RANDOM_WORDS[@]}]}
+              BRANCH="daily-pr-$(date '+%Y%m%d%H%M%S')-$RAND_WORD"
+              git checkout -b $BRANCH
+              LOG="${PR_LOGS[$RANDOM % ${#PR_LOGS[@]}]}"
+              echo "$TIME_STR - $LOG" >> update.md
+              git add update.md
+              git commit -m "${COMMIT_MESSAGES[$RANDOM % ${#COMMIT_MESSAGES[@]}]}"
+              git push origin $BRANCH
+              BODY="${PR_BODIES[$RANDOM % ${#PR_BODIES[@]}]}"
+              gh pr create --title "Daily PR - $TIME_STR" --body "$BODY" --base main --head $BRANCH --repo $REPO
+              echo "- 🔀 PR: 已创建 $BRANCH" >> update.md
             else
-              echo "- ✅ Review: 没有可审核的 PR" >> update.md
+              echo "- 🔀 PR: 未执行" >> update.md
             fi
-          else
-            echo "- ✅ Review: 未执行" >> update.md
-          fi
-        env:
-          GH_TOKEN: ${{ secrets.GH_TOKEN }}
 
-      # 推送最终更新日志
-      - name: Push final update
+            # 随机 Review
+            RAND=$((RANDOM % 100))
+            if [ $RAND -lt 30 ]; then
+              PR_INFO=$(gh pr list --state open --repo $REPO --json number,author \
+                        --jq ".[] | select(.author.login != \"${GITHUB_ACTOR}\") | .number" | head -n 1)
+              if [ -n "$PR_INFO" ]; then
+                gh pr review $PR_INFO --approve --body "👍 自动审核：代码很棒！继续加油 🌱"
+                echo "- ✅ Review: 已审核 PR #$PR_INFO" >> update.md
+              else
+                echo "- ✅ Review: 没有可审核的 PR" >> update.md
+              fi
+            else
+              echo "- ✅ Review: 未执行" >> update.md
+            fi
+          done
+
+      - name: Clean Old Logs
+        run: |
+          tail -n 14 update.md > update_tmp.md
+          mv update_tmp.md update.md
+
+      - name: Commit and Push Final Update
         run: |
           git add update.md
           git commit -m "chore: finalize daily log" || echo "No changes to commit"
