@@ -10,7 +10,6 @@ jobs:
     runs-on: ubuntu-latest
     env:
       REPO: ${{ github.repository }}
-      ACTOR_A: ${{ github.actor }}
       TOKEN_A: ${{ secrets.GH_TOKEN }}    # 账号 A 的 token
       TOKEN_B: ${{ secrets.PAT_B }}       # 账号 B 的 PAT，用于自动 approve
 
@@ -131,10 +130,12 @@ jobs:
       - name: Auto Approve PRs using B
         run: |
           echo "Fetching open PRs not by B..."
-          PR_LIST=$(GH_TOKEN=${{ secrets.PAT_B }} gh pr list --state open --repo $REPO --json number,author \
-                    --jq ".[] | select(.author.login != \"MooChee-lee\") | .number")
-
-          for PR in $PR_LIST; do
-            echo "Approving PR #$PR with B..."
-            GH_TOKEN=${{ secrets.PAT_B }} gh pr review $PR --approve --body "👍 自动互相 Code Review" --repo $REPO
-          done
+          bash -c '
+            GH_TOKEN=${{ secrets.PAT_B }}
+            PR_LIST=$(gh pr list --state open --repo '"$REPO"' --json number,author \
+                      --jq ".[] | select(.author.login != \"MooChee-lee\") | .number")
+            for PR in $PR_LIST; do
+              echo "Approving PR #$PR with B..."
+              GH_TOKEN=${{ secrets.PAT_B }} gh pr review $PR --approve --body "👍 自动互相 Code Review" --repo '"$REPO"'
+            done
+          '
