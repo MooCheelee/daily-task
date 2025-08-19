@@ -1,8 +1,8 @@
-name: Daily Random GitHub Activity
+name: Daily Random GitHub Activity & Auto PR Review
 
 on:
   schedule:
-    - cron: '0 0 * * *'  # UTC 0 点触发
+    - cron: '0 0 * * *'  # 每天 UTC 0 点触发
   workflow_dispatch:
 
 jobs:
@@ -37,9 +37,8 @@ jobs:
           EXEC_COUNT=$((1 + RANDOM % 2))
           echo "execution_count=$EXEC_COUNT" >> $GITHUB_OUTPUT
 
-      - name: Run Random Actions with Multiple Commits
+      - name: Run Random Actions with Multiple Commits, Issues, PRs, Reviews
         run: |
-          # 模板
           ISSUE_BODIES=("随机生成每日 Issue 🌱" "自动记录每日活跃 ✨" "今日日志 Issue 🐣" "小小提醒：保持活跃 💡" "每日笔记日志 📝")
           PR_BODIES=("随机生成每日 PR 🌱" "每日更新记录 ✨" "自动生成 PR 🐣" "今日工作快照 📸" "小改动 PR ✏️")
           PR_LOGS=("自动 PR 日志 🌱" "每日更新记录 ✨" "随机生成 PR 🐣" "小小提交 🌸" "今日进度 🏃‍♂️")
@@ -50,11 +49,12 @@ jobs:
 
           for i in $(seq 1 ${{ steps.exec_count.outputs.execution_count }}); do
             # 随机延迟
-            SLEEP_MIN=$((RANDOM % 180))
+            SLEEP_MIN=$((RANDOM % 1))
             echo "Execution $i: sleeping $SLEEP_MIN minutes..."
             sleep "${SLEEP_MIN}m"
 
             TIME_STR=$(TZ='Asia/Shanghai' date '+%Y-%m-%d %H:%M:%S')
+
             # 随机 emoji 和标签
             EMO_COUNT=$((1 + RANDOM % 3))
             LINE_EMOJIS=""
@@ -70,18 +70,18 @@ jobs:
             echo "## $TIME_STR - Run $i $LINE_EMOJIS $LINE_TAGS" >> update.md
             echo "- 📝 Commit: 更新日志 $LINE_EMOJIS $LINE_TAGS" >> update.md
 
-            # 随机生成 1~3 小 commit，全部写入 update.md
+            # 随机生成 1~3 小 commit
             COMMIT_COUNT=$((1 + RANDOM % 3))
             for j in $(seq 1 $COMMIT_COUNT); do
               LINE="随机日志内容 $RANDOM $LINE_EMOJIS $LINE_TAGS"
               echo "$LINE" >> update.md
               git add update.md
-              git commit -m "${COMMIT_MESSAGES[$RANDOM % ${#COMMIT_MESSAGES[@]}]}"
+              git commit -m "${COMMIT_MESSAGES[$RANDOM % ${#COMMIT_MESSAGES[@]}]}" || echo "No changes"
             done
 
             # 随机 Issue
             RAND=$((RANDOM % 100))
-            if [ $RAND -lt 40 ]; then
+            if [ $RAND -lt 100 ]; then
               TODAY=$(TZ='Asia/Shanghai' date '+%Y-%m-%d')
               ISSUE_TITLE="Daily Issue - $TODAY"
               ISSUE_NUMBER=$(gh issue list --repo $REPO --state open --search "$ISSUE_TITLE in:title" --json number --jq '.[0].number')
@@ -99,7 +99,7 @@ jobs:
 
             # 随机 PR
             RAND=$((RANDOM % 100))
-            if [ $RAND -lt 20 ]; then
+            if [ $RAND -lt 100 ]; then
               RAND_WORD=${RANDOM_WORDS[$RANDOM % ${#RANDOM_WORDS[@]}]}
               BRANCH="daily-pr-$(date '+%Y%m%d%H%M%S')-$RAND_WORD"
               git checkout -b $BRANCH
@@ -115,9 +115,9 @@ jobs:
               echo "- 🔀 PR: 未执行" >> update.md
             fi
 
-            # 随机 Review
+            # 自动 Review
             RAND=$((RANDOM % 100))
-            if [ $RAND -lt 30 ]; then
+            if [ $RAND -lt 100 ]; then
               PR_INFO=$(gh pr list --state open --repo $REPO --json number,author \
                         --jq ".[] | select(.author.login != \"${GITHUB_ACTOR}\") | .number" | head -n 1)
               if [ -n "$PR_INFO" ]; then
