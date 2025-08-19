@@ -84,7 +84,7 @@ jobs:
       # 自动对开源仓库 PR 做 Code Review（贡献图真实显示）
       - name: Auto Code Review on external repo
         run: |
-          TARGET_REPO="Daily Quests"  # 替换为你想 review 的仓库
+          TARGET_REPO="MooChee-lee/Daily-Quests"  # 替换为你想 review 的仓库
           PR_LIST=$(gh pr list --state open --repo $TARGET_REPO --json number -q '.[].number')
 
           if [ -z "$PR_LIST" ]; then
