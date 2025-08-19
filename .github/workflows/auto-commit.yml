@@ -2,7 +2,7 @@ name: Daily Random GitHub Activity & Mutual Review
 
 on:
   schedule:
-    - cron: '0 0 * * *'
+    - cron: '0 0 * * *'  # 每天 UTC 0 点
   workflow_dispatch:
 
 jobs:
@@ -11,7 +11,7 @@ jobs:
     env:
       REPO: ${{ github.repository }}
       ACTOR_A: ${{ github.actor }}
-      TOKEN_A: ${{ secrets.GH_TOKEN }}    # workflow 默认 token
+      TOKEN_A: ${{ secrets.GH_TOKEN }}    # 账号 A 的 token
       TOKEN_B: ${{ secrets.PAT_B }}       # 账号 B 的 PAT，用于自动 approve
 
     steps:
@@ -40,7 +40,7 @@ jobs:
 
       - name: Run Random Actions (commit / Issue / PR)
         env:
-          GH_TOKEN: ${{ secrets.GH_TOKEN }}   # 给 gh 命令授权
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
         run: |
           ISSUE_BODIES=("随机生成每日 Issue 🌱" "自动记录每日活跃 ✨" "今日日志 Issue 🐣" "小小提醒：保持活跃 💡" "每日笔记日志 📝")
           PR_BODIES=("随机生成每日 PR 🌱" "每日更新记录 ✨" "自动生成 PR 🐣" "今日工作快照 📸" "小改动 PR ✏️")
@@ -51,14 +51,12 @@ jobs:
           RANDOM_WORDS=("sun" "moon" "star" "tree" "flower" "code" "log" "note" "spark" "leaf")
 
           for i in $(seq 1 ${{ steps.exec_count.outputs.execution_count }}); do
-            # 随机延迟
             SLEEP_MIN=$((RANDOM % 1))
             echo "Execution $i: sleeping $SLEEP_MIN minutes..."
             sleep "${SLEEP_MIN}m"
 
             TIME_STR=$(TZ='Asia/Shanghai' date '+%Y-%m-%d %H:%M:%S')
 
-            # 随机 emoji / 标签
             EMO_COUNT=$((1 + RANDOM % 3))
             LINE_EMOJIS=""
             for e in $(seq 1 $EMO_COUNT); do
@@ -73,7 +71,6 @@ jobs:
             echo "## $TIME_STR - Run $i $LINE_EMOJIS $LINE_TAGS" >> update.md
             echo "- 📝 Commit: 更新日志 $LINE_EMOJIS $LINE_TAGS" >> update.md
 
-            # 随机 commit
             COMMIT_COUNT=$((1 + RANDOM % 3))
             for j in $(seq 1 $COMMIT_COUNT); do
               LINE="随机日志内容 $RANDOM $LINE_EMOJIS $LINE_TAGS"
@@ -132,12 +129,13 @@ jobs:
           git push origin HEAD:main
 
       - name: Auto Approve PRs using B
-        env:
-          GH_TOKEN: ${{ secrets.PAT_B }}  # 使用账号 B 的 PAT
         run: |
           echo "Fetching open PRs not by B..."
+          export GH_TOKEN=${{ secrets.PAT_B }}
+
           PR_LIST=$(gh pr list --state open --repo $REPO --json number,author \
                     --jq ".[] | select(.author.login != \"MooChee-lee\") | .number")
+
           for PR in $PR_LIST; do
             echo "Approving PR #$PR with B..."
             gh pr review $PR --approve --body "👍 自动互相 Code Review" --repo $REPO
