@@ -2,73 +2,80 @@ name: Daily Random GitHub Activity
 
 on:
   schedule:
-    - cron: '0 0 * * *'  # 每天 UTC 0 点触发
-  workflow_dispatch:       # 手动触发
+    - cron: '0 0 * * *'   # UTC 0 点触发（北京时间 8 点）
+  workflow_dispatch:
 
 jobs:
   daily-activity:
     runs-on: ubuntu-latest
 
     steps:
-      # 拉取 main 分支，避免 detached HEAD
+      # --- 拉取仓库 (切换到 main，避免 detached HEAD) ---
       - name: Checkout repo
         uses: actions/checkout@v3
         with:
           ref: main
           token: ${{ secrets.GH_TOKEN }}
 
-      # 随机延迟（模拟每天随机时间）
+      # --- 随机延迟，模拟不同时段执行 ---
       - name: Wait for random delay
         run: |
           DELAY=$((RANDOM % 1))
           echo "Waiting for $DELAY seconds..."
           sleep $DELAY
 
-      # 确保 update.md 存在
-      - name: Ensure update.md exists
+      # --- 确保日志文件存在 ---
+      - name: Ensure logs exist
         run: |
-          if [ ! -f update.md ]; then
-            echo "# Daily Commit Log" > update.md
-          fi
+          [ ! -f update.md ] && echo "# Daily Activity Log" > update.md
+          [ ! -f workflow-log.txt ] && echo "=== Workflow Log ===" > workflow-log.txt
 
-      # 清理超过 7 天的日志
-      - name: Clean up logs older than 7 days
+      # --- 删除 7 天前的日志 (只清 workflow-log.txt，不删 update.md 总结) ---
+      - name: Clean workflow-log.txt (7 days)
         run: |
-          find . -name "update.md" -mtime +7 -exec rm -f {} \; || true
-          echo "Cleaned old logs."
+          tail -n 500 workflow-log.txt > workflow-log.tmp || true
+          mv workflow-log.tmp workflow-log.txt
 
-      # 每日 Commit
-      - name: Append random log
+      # --- Commit (必做，每天都会有) ---
+      - name: Daily commit
         run: |
-          echo "$(TZ='Asia/Shanghai' date '+%Y-%m-%d %H:%M:%S') - 自动提交日志 🌱" >> update.md
+          NOW=$(TZ='Asia/Shanghai' date '+%Y-%m-%d %H:%M:%S')
+          DAY=$(TZ='Asia/Shanghai' date '+%Y-%m-%d')
 
-      - name: Commit and push log
-        run: |
+          echo "$NOW - Commit pushed 🌱" >> workflow-log.txt
+
+          echo "## $DAY" >> update.md
+          echo "- ⏰ Commit: 自动提交日志 🌱" >> update.md
+
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add update.md
-          git commit -m "chore: daily log update" || echo "No changes to commit"
+          git add update.md workflow-log.txt
+          git commit -m "chore: daily log update" || echo "No changes"
           git push origin main
 
-      # 随机创建 Issue (30%)
-      - name: Randomly create daily issue
+      # --- 随机 Issue (30%) ---
+      - name: Random Issue
         run: |
           RAND=$((RANDOM % 100))
+          DAY=$(TZ='Asia/Shanghai' date '+%Y-%m-%d')
           if [ $RAND -lt 100 ]; then
-            echo "生成 Issue"
-            gh issue create --title "Daily Issue - $(TZ='Asia/Shanghai' date '+%Y-%m-%d')" \
-                            --body "随机生成每日 Issue 🌱" \
-                            --repo $GITHUB_REPOSITORY
+            ISSUE_URL=$(gh issue create --title "Daily Issue - $DAY" \
+                        --body "随机生成每日 Issue 🌱" \
+                        --repo $GITHUB_REPOSITORY --json url -q '.url')
+            echo "$(date) - Created Issue $ISSUE_URL" >> workflow-log.txt
+            echo "- 🐛 Issue: $ISSUE_URL" >> update.md
           else
-            echo "今天不生成 Issue"
+            echo "$(date) - Skipped Issue" >> workflow-log.txt
+            echo "- 🐛 Issue: 无" >> update.md
           fi
         env:
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
 
-      # 随机创建 PR (30%)
-      - name: Randomly create daily PR
+      # --- 随机 PR (30%) ---
+      - name: Random PR
         run: |
           RAND=$((RANDOM % 100))
+          DAY=$(TZ='Asia/Shanghai' date '+%Y-%m-%d')
           if [ $RAND -lt 100 ]; then
             BRANCH="daily-pr-$(date '+%Y%m%d%H%M%S')"
             git checkout -b $BRANCH
@@ -76,32 +83,27 @@ jobs:
             git add update.md
             git commit -m "chore: daily PR update"
             git push origin $BRANCH
-            gh pr create --title "Daily PR - $(TZ='Asia/Shanghai' date '+%Y-%m-%d')" \
-                         --body "随机生成每日 PR 🌱" \
-                         --base main \
-                         --head $BRANCH \
-                         --repo $GITHUB_REPOSITORY
-          else
-            echo "今天不生成 PR"
-          fi
-        env:
-          GH_TOKEN: ${{ secrets.GH_TOKEN }}
 
-      # 自动合并 PR
-      - name: Auto merge first open PR
-        run: |
-          PR_URL=$(gh pr list --state open --repo $GITHUB_REPOSITORY --json url -q '.[0].url')
-          if [ -n "$PR_URL" ]; then
-            echo "Merging PR: $PR_URL"
+            PR_URL=$(gh pr create --title "Daily PR - $DAY" \
+                      --body "随机生成每日 PR 🌱" \
+                      --base main --head $BRANCH \
+                      --repo $GITHUB_REPOSITORY --json url -q '.url')
+
+            echo "$(date) - Created PR $PR_URL" >> workflow-log.txt
+            echo "- 🔀 PR: $PR_URL" >> update.md
+
+            # 自动合并 PR
             gh pr merge "$PR_URL" --squash --delete-branch --admin
+            echo "$(date) - Auto merged $PR_URL" >> workflow-log.txt
           else
-            echo "No open PR to merge."
+            echo "$(date) - Skipped PR" >> workflow-log.txt
+            echo "- 🔀 PR: 无" >> update.md
           fi
         env:
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
 
-      # 随机 Code Review (30%)
-      - name: Randomly add code review comment
+      # --- 随机 Code Review (30%) ---
+      - name: Random Review
         run: |
           RAND=$((RANDOM % 100))
           if [ $RAND -lt 100 ]; then
@@ -110,14 +112,17 @@ jobs:
             PR_AUTHOR=$(echo "$PR_INFO" | jq -r '.author.login')
             CURRENT_USER=$(gh api user -q '.login')
 
-            if [ "$PR_AUTHOR" != "$CURRENT_USER" ] && [ -n "$PR_URL" ]; then
-              echo "Reviewing PR: $PR_URL"
-              gh pr review "$PR_URL" --approve --body "Looks good! 👍"
+            if [ -n "$PR_URL" ] && [ "$PR_AUTHOR" != "$CURRENT_USER" ]; then
+              gh pr review "$PR_URL" --approve --body "Good work! Keep it up! 🌱"
+              echo "$(date) - Reviewed PR $PR_URL" >> workflow-log.txt
+              echo "- 👀 Review: Reviewed $PR_URL 👍" >> update.md
             else
-              echo "跳过自己创建的 PR 或无可审查的 PR"
+              echo "$(date) - Skipped Review (no suitable PR)" >> workflow-log.txt
+              echo "- 👀 Review: 无" >> update.md
             fi
           else
-            echo "今天不进行代码审查"
+            echo "$(date) - Skipped Review" >> workflow-log.txt
+            echo "- 👀 Review: 无" >> update.md
           fi
         env:
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
