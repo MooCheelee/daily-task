@@ -2,8 +2,8 @@ name: Daily Random GitHub Activity
 
 on:
   schedule:
-    - cron: '0 0 * * *'   # 每天 UTC 0点触发
-  workflow_dispatch:       # 支持手动触发
+    - cron: '0 0 * * *'  # 每天 UTC 0 点触发（北京时间早上 8 点）
+  workflow_dispatch:       # 允许手动触发
 
 jobs:
   daily-activity:
@@ -16,99 +16,103 @@ jobs:
         with:
           token: ${{ secrets.GH_TOKEN }}
 
-      # 随机延迟（0~24小时内随机时间执行）
-      - name: Wait for random delay
+      # 设置 Git 用户信息
+      - name: Setup Git
         run: |
-          DELAY=$((RANDOM % 1))
-          echo "Waiting $DELAY seconds..."
-          sleep $DELAY
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
       # 确保 update.md 文件存在
       - name: Ensure update.md exists
         run: |
           if [ ! -f update.md ]; then
-            echo "# 📅 Daily GitHub Activity Log" > update.md
+            echo "# Daily Activity Log" > update.md
             echo "" >> update.md
           fi
 
-      # 随机提交日志
-      - name: Append random log
+      # 追加日志（每日必定有 Commit）
+      - name: Append daily log
         run: |
-          echo "## $(TZ='Asia/Shanghai' date '+%Y-%m-%d')" >> update.md
-          echo "- 📝 Commit: 自动提交日志 🌱" >> update.md
-          echo "" >> update.md
+          echo "## $(TZ='Asia/Shanghai' date '+%Y-%m-%d %H:%M:%S')" >> update.md
+          echo "- 📝 Commit: 更新日志" >> update.md
 
+      # 提交日志
       - name: Commit and push log
         run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add update.md
-          git commit -m "chore: daily log update" || echo "No changes"
+          git commit -m "chore: daily log update" || echo "No changes to commit"
           git push origin HEAD:main
 
-      # 随机 Issue (30%)
-      - name: Random Issue
+      # 随机创建或评论 Issue (30%)
+      - name: Random Daily Issue or Comment
         run: |
           RAND=$((RANDOM % 100))
-          DAY=$(TZ='Asia/Shanghai' date '+%Y-%m-%d')
           if [ $RAND -lt 100 ]; then
-            ISSUE_URL=$(gh issue create \
-                        --title "Daily Issue - $DAY" \
-                        --body "随机生成每日 Issue 🌱" \
-                        --repo $GITHUB_REPOSITORY | tail -n 1)
-            echo "- 🐛 Issue: $ISSUE_URL" >> update.md
+            TODAY=$(TZ='Asia/Shanghai' date '+%Y-%m-%d')
+            ISSUE_TITLE="Daily Issue - $TODAY"
+
+            ISSUE_NUMBER=$(gh issue list --repo $GITHUB_REPOSITORY --state open --search "$ISSUE_TITLE in:title" --json number --jq '.[0].number')
+
+            if [ -z "$ISSUE_NUMBER" ]; then
+              gh issue create --title "$ISSUE_TITLE" \
+                              --body "随机生成每日 Issue 🌱" \
+                              --repo $GITHUB_REPOSITORY
+              echo "- 🆕 Issue: 已创建 $ISSUE_TITLE" >> update.md
+            else
+              gh issue comment $ISSUE_NUMBER --body "🤖 自动评论：每日活跃记录 ✨"
+              echo "- 💬 Issue: 已评论 #$ISSUE_NUMBER" >> update.md
+            fi
           else
-            echo "- 🐛 Issue: 无" >> update.md
+            echo "- 🆕 Issue: 未执行" >> update.md
           fi
         env:
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
 
-      # 随机 PR (30%)
-      - name: Random PR
+      # 随机创建每日 PR (30%)
+      - name: Random Daily PR
         run: |
           RAND=$((RANDOM % 100))
-          DAY=$(TZ='Asia/Shanghai' date '+%Y-%m-%d')
           if [ $RAND -lt 100 ]; then
             BRANCH="daily-pr-$(date '+%Y%m%d%H%M%S')"
             git checkout -b $BRANCH
-            echo "- 🔀 PR Commit: 自动 PR 日志 🌱" >> update.md
+            echo "$(TZ='Asia/Shanghai' date '+%Y-%m-%d %H:%M:%S') - 自动 PR 日志 🌱" >> update.md
             git add update.md
             git commit -m "chore: daily PR update"
             git push origin $BRANCH
-            PR_URL=$(gh pr create \
-                      --title "Daily PR - $DAY" \
-                      --body "随机生成每日 PR 🌱" \
-                      --base main --head $BRANCH \
-                      --repo $GITHUB_REPOSITORY | tail -n 1)
-            echo "- 🔀 PR: $PR_URL" >> update.md
+
+            gh pr create --title "Daily PR - $(TZ='Asia/Shanghai' date '+%Y-%m-%d')" \
+                         --body "随机生成每日 PR 🌱" \
+                         --base main \
+                         --head $BRANCH \
+                         --repo $GITHUB_REPOSITORY
+            echo "- 🔀 PR: 已创建 $BRANCH" >> update.md
           else
-            echo "- 🔀 PR: 无" >> update.md
+            echo "- 🔀 PR: 未执行" >> update.md
           fi
         env:
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
 
-      # 随机 Code Review (30%)
-      - name: Random Review
+      # 随机给别人 PR 做 Code Review (30%)
+      - name: Random Code Review
         run: |
           RAND=$((RANDOM % 100))
           if [ $RAND -lt 100 ]; then
-            PR_URL=$(gh pr list --state open --repo $GITHUB_REPOSITORY | head -n 1 | awk '{print $1}')
-            if [ -n "$PR_URL" ]; then
-              echo "Reviewing PR #$PR_URL"
-              gh pr review $PR_URL --approve --body "LGTM 👍 自动审核"
-              echo "- 👀 Review: 已审核 PR #$PR_URL" >> update.md
+            PR_INFO=$(gh pr list --state open --repo $GITHUB_REPOSITORY --json number,author --jq '.[] | select(.author.login != "${{ github.actor }}") | .number' | head -n 1)
+            if [ -n "$PR_INFO" ]; then
+              gh pr review $PR_INFO --approve --body "👍 自动审核：代码很棒！继续加油 🌱"
+              echo "- ✅ Review: 已审核 PR #$PR_INFO" >> update.md
             else
-              echo "- 👀 Review: 无可用 PR" >> update.md
+              echo "- ✅ Review: 没有可审核的 PR" >> update.md
             fi
           else
-            echo "- 👀 Review: 未执行" >> update.md
+            echo "- ✅ Review: 未执行" >> update.md
           fi
         env:
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
 
-      # 更新 update.md (把 Issue/PR/Review 写进去)
-      - name: Final Commit
+      # 推送最终更新日志
+      - name: Push final update
         run: |
           git add update.md
-          git commit -m "chore: update daily log (issues/pr/reviews)" || echo "No changes"
+          git commit -m "chore: finalize daily log" || echo "No changes to commit"
           git push origin HEAD:main
