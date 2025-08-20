@@ -1,9 +1,9 @@
-name: Daily Random GitHub Activity
+name: Daily GitHub Activity
 
 on:
   schedule:
-    - cron: '0 0 * * *'  # UTC 0 点触发工作流，每天触发
-  workflow_dispatch:       # 手动触发
+    - cron: '0 0 * * *'  # 每天 UTC 0 点触发
+  workflow_dispatch:
 
 jobs:
   daily-activity:
@@ -14,13 +14,13 @@ jobs:
       - name: Checkout repo
         uses: actions/checkout@v3
         with:
-          token: ${{ secrets.GH_TOKEN }}
+          token: ${{ secrets.GH_PAT }}  # 用个人 PAT 拉取有写权限的仓库
 
-      # 随机延迟（模拟随机时间执行）
-      - name: Wait for random delay
+      # 随机延迟 0~24 小时
+      - name: Random delay
         run: |
-          DELAY=$((RANDOM % 1))  # 随机延迟 0 到 86400 秒（24 小时）
-          echo "Waiting for $DELAY seconds before starting actions..."
+          DELAY=$((RANDOM % 86400))
+          echo "等待 $DELAY 秒再执行..."
           sleep $DELAY
 
       # 确保 update.md 文件存在
@@ -30,45 +30,47 @@ jobs:
             echo "# Daily Commit Log" > update.md
           fi
 
-      # ----- 清理 7 天前的日志 -----
+      # 清理 7 天前日志
       - name: Clean up logs older than 7 days
         run: |
           find . -name "update.md" -mtime +7 -exec rm -f {} \;
-          echo "Cleaned up logs older than 7 days."
+          echo "清理完 7 天前日志"
 
-      # ----- 随机提交日志 (增加 Commits) -----
-      - name: Append random log
+      # 提交每日日志（Commit）
+      - name: Append daily log
         run: |
           echo "$(TZ='Asia/Shanghai' date '+%Y-%m-%d %H:%M:%S') - 自动提交日志 🌱" >> update.md
 
       - name: Commit and push log
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add update.md
           git commit -m "chore: daily log update" || echo "No changes to commit"
-          git push
+          git push origin main
 
-      # ----- 随机创建每日 Issue (40% 概率) (增加 Issues) -----
-      - name: Randomly create daily issue
+      # 随机创建 Issue
+      - name: Randomly create Issue
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
         run: |
           RAND=$((RANDOM % 100))
-          if [ $RAND -lt 100 ]; then  # 测试版保持 100%
+          if [ $RAND -lt 40 ]; then
             echo "生成每日 Issue"
             gh issue create --title "Daily Issue - $(TZ='Asia/Shanghai' date '+%Y-%m-%d')" \
                              --body "随机生成每日 Issue 🌱" \
                              --repo $GITHUB_REPOSITORY
-          else
-            echo "今天不生成 Issue"
           fi
-        env:
-          GH_TOKEN: ${{ secrets.GH_TOKEN }}
 
-      # ----- 随机创建每日 PR (20% 概率) (增加 Pull Requests) -----
-      - name: Randomly create daily PR
+      # 随机创建 PR
+      - name: Randomly create PR
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
         run: |
           RAND=$((RANDOM % 100))
-          if [ $RAND -lt 100 ]; then  # 测试版保持 100%
+          if [ $RAND -lt 20 ]; then
             BRANCH="daily-pr-$(date '+%Y%m%d%H%M%S')"
             git checkout -b $BRANCH
             echo "$(TZ='Asia/Shanghai' date '+%Y-%m-%d %H:%M:%S') - 自动 PR 日志 🌱" >> update.md
@@ -80,58 +82,23 @@ jobs:
                          --base main \
                          --head $BRANCH \
                          --repo $GITHUB_REPOSITORY
-          else
-            echo "今天不生成 PR"
-          fi
-        env:
-          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+            fi
 
-      # ----- 随机给 PR 进行代码审查 (增加 Code Reviews) -----
-      - name: Randomly add code review comment
+      # 自动对开源仓库 PR 做 Code Review
+      - name: Auto Code Review on external repo
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
         run: |
-          RAND=$((RANDOM % 100))
-          if [ $RAND -lt 100 ]; then   # 测试版保持 100%
-            echo "尝试进行 Code Review..."
-            PR_INFO=$(gh pr list --state open --repo $GITHUB_REPOSITORY --json url,author,number -q '.[0]')
+  
+         TARGET_REPO="MooChee-lee/Daily-Quests"
 
-            # 如果没有 PR，则生成一个临时 PR
-            if [ -z "$PR_INFO" ]; then
-              echo "没有找到可 review 的 PR，先生成一个临时 PR"
-              TEMP_BRANCH="auto-review-pr-$(date +%s)"
-              git checkout -b $TEMP_BRANCH
-              echo "$(TZ='Asia/Shanghai' date '+%Y-%m-%d %H:%M:%S') - 临时 PR 内容 🌱" >> review-log.md
-              git add review-log.md
-              git commit -m "chore: 临时 PR for review"
-              git push origin $TEMP_BRANCH
-              gh pr create --title "临时 PR for Review $(date +%F)" \
-                           --body "机器人生成的临时 PR，用来保证有 Code Review 记录 ✅" \
-                           --base main \
-                           --head $TEMP_BRANCH \
-                           --repo $GITHUB_REPOSITORY
-              # 重新获取 PR 信息
-              PR_INFO=$(gh pr list --state open --repo $GITHUB_REPOSITORY --json url,author,number -q '.[0]')
-            fi
+         PR_LIST=$(gh pr list --state open --repo "$TARGET_REPO" --json number -q '.[].number')
 
-            PR_URL=$(echo "$PR_INFO" | jq -r '.url')
-            PR_NUM=$(echo "$PR_INFO" | jq -r '.number')
-            PR_AUTHOR=$(echo "$PR_INFO" | jq -r '.author.login')
-            CURRENT_USER=$(gh api user -q '.login')
-
-            if [ "$PR_AUTHOR" != "$CURRENT_USER" ]; then
-              echo "对别人的 PR 添加 Review: $PR_URL"
-              gh pr review $PR_NUM --approve --body "🤖 自动 Review：Looks good to me! 🌱"
-            else
-              echo "这是自己的 PR，添加评论代替 Review"
-              gh pr comment $PR_NUM --body "🤖 自动 Review 评论：自检通过 ✅"
-            fi
-
-            # 自动合并临时 PR（如果是机器人自己生成的）
-            if [[ "$PR_URL" == *"auto-review-pr"* ]]; then
-              echo "合并临时 PR: $PR_URL"
-              gh pr merge $PR_NUM --squash --delete-branch --repo $GITHUB_REPOSITORY
-            fi
-          else
-            echo "今天不进行代码审查"
+         if [ -z "$PR_LIST" ]; then
+         echo "没有找到可 review 的 PR"
+         exit 0
           fi
-        env:
-          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+
+         PR_NUM=$(echo "$PR_LIST" | shuf -n1)
+         echo "准备对 PR #$PR_NUM 进行自动 Review"
+         gh pr review "$PR_NUM" --approve --body "🤖 自动 Review: 看起来不错！"
