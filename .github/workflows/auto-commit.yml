@@ -6,41 +6,36 @@ on:
   workflow_dispatch:
   pull_request:
     paths:
-      - "update.md"  # 当 update.md 有冲突时触发
+      - "update.md"
 
 jobs:
   daily-activity:
     runs-on: ubuntu-latest
     if: github.event_name != 'pull_request'
     steps:
-      # Checkout 仓库，用 GITHUB_TOKEN
       - name: Checkout repo
         uses: actions/checkout@v3
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           fetch-depth: 0
 
-      # 随机延迟 0~24 小时
-      - name: Random delay
+      - name: Random delay (0~24h)
         run: |
           DELAY=$((RANDOM % 1))
           echo "等待 $DELAY 秒再执行..."
           sleep $DELAY
 
-      # 确保 update.md 存在
       - name: Ensure update.md exists
         run: |
           if [ ! -f update.md ]; then
             echo "# Daily Commit Log" > update.md
           fi
 
-      # 清理 7 天前日志
       - name: Clean up logs older than 7 days
         run: |
           find . -name "update.md" -mtime +7 -exec rm -f {} \;
           echo "清理完 7 天前日志"
 
-      # 提交每日日志
       - name: Append daily log
         run: |
           echo "$(TZ='Asia/Shanghai' date '+%Y-%m-%d %H:%M:%S') - 自动提交日志 🌱" >> update.md
@@ -51,22 +46,18 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add update.md
           git commit -m "chore: daily log update" || echo "No changes to commit"
-          git push origin main
+          git push https://${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }} HEAD:main
 
-      # 随机创建 Issue
       - name: Randomly create Issue
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           RAND=$((RANDOM % 100))
-          if [ $RAND -lt 100 ]; then
-            echo "生成每日 Issue"
+          if [ $RAND -lt 100 ]; then  # 30% 概率
             gh issue create --title "Daily Issue - $(TZ='Asia/Shanghai' date '+%Y-%m-%d')" \
                             --body "随机生成每日 Issue 🌱" \
                             --repo $GITHUB_REPOSITORY
-          fi
 
-      # 随机创建 PR
       - name: Randomly create PR
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -78,14 +69,13 @@ jobs:
             echo "$(TZ='Asia/Shanghai' date '+%Y-%m-%d %H:%M:%S') - 自动 PR 日志 🌱" >> update.md
             git add update.md
             git commit -m "chore: daily PR update"
-            git push origin $BRANCH
+            git push https://${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }} HEAD:$BRANCH
             gh pr create --title "Daily PR - $(TZ='Asia/Shanghai' date '+%Y-%m-%d')" \
                          --body "随机生成每日 PR 🌱" \
                          --base main \
                          --head $BRANCH \
                          --repo $GITHUB_REPOSITORY
 
-      # 自动 Code Review 外部仓库 PR
       - name: Auto Code Review on external repo
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -131,9 +121,10 @@ jobs:
             rm -f side1.txt side2.txt update.md.merged
             git add update.md
             git commit -m "chore: auto-merge conflict in update.md (keep order + prepend log)"
+          fi
 
       - name: Push changes
-        run: git push origin HEAD:${{ github.head_ref }}
+        run: git push https://${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }} HEAD:${{ github.head_ref }}
 
       - name: Comment on PR
         run: |
