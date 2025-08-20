@@ -4,65 +4,70 @@ on:
   schedule:
     - cron: '0 0 * * *'  # 每天 UTC 0 点触发
   workflow_dispatch:
-  pull_request:
-    paths:
-      - "update.md"
 
 jobs:
   daily-activity:
-    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
+
     steps:
+      # 拉取仓库
       - name: Checkout repo
         uses: actions/checkout@v3
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          fetch-depth: 0
+          token: ${{ secrets.GH_PAT }}  # 用个人 PAT 拉取有写权限的仓库
 
-      - name: Random delay (0~24h)
+      # 随机延迟 0~24 小时
+      - name: Random delay
         run: |
           DELAY=$((RANDOM % 1))
           echo "等待 $DELAY 秒再执行..."
           sleep $DELAY
 
+      # 确保 update.md 文件存在
       - name: Ensure update.md exists
         run: |
           if [ ! -f update.md ]; then
             echo "# Daily Commit Log" > update.md
           fi
 
+      # 清理 7 天前日志
       - name: Clean up logs older than 7 days
         run: |
           find . -name "update.md" -mtime +7 -exec rm -f {} \;
           echo "清理完 7 天前日志"
 
+      # 提交每日日志（Commit）
       - name: Append daily log
         run: |
           echo "$(TZ='Asia/Shanghai' date '+%Y-%m-%d %H:%M:%S') - 自动提交日志 🌱" >> update.md
 
       - name: Commit and push log
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add update.md
           git commit -m "chore: daily log update" || echo "No changes to commit"
-          git config --global url."https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/".insteadOf "https://github.com/"
-          git push origin HEAD:main
+          git push origin main
 
+      # 随机创建 Issue
       - name: Randomly create Issue
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_PAT }}
         run: |
           RAND=$((RANDOM % 100))
           if [ $RAND -lt 100 ]; then
+            echo "生成每日 Issue"
             gh issue create --title "Daily Issue - $(TZ='Asia/Shanghai' date '+%Y-%m-%d')" \
-                            --body "随机生成每日 Issue 🌱" \
-                            --repo $GITHUB_REPOSITORY
+                             --body "随机生成每日 Issue 🌱" \
+                             --repo $GITHUB_REPOSITORY
           fi
 
+      # 随机创建 PR
       - name: Randomly create PR
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_PAT }}
         run: |
           RAND=$((RANDOM % 100))
           if [ $RAND -lt 100 ]; then
@@ -71,70 +76,29 @@ jobs:
             echo "$(TZ='Asia/Shanghai' date '+%Y-%m-%d %H:%M:%S') - 自动 PR 日志 🌱" >> update.md
             git add update.md
             git commit -m "chore: daily PR update"
-            git push origin HEAD:$BRANCH
+            git push origin $BRANCH
             gh pr create --title "Daily PR - $(TZ='Asia/Shanghai' date '+%Y-%m-%d')" \
                          --body "随机生成每日 PR 🌱" \
                          --base main \
                          --head $BRANCH \
                          --repo $GITHUB_REPOSITORY
-          fi
+            fi
 
+      # 自动对开源仓库 PR 做 Code Review
       - name: Auto Code Review on external repo
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_PAT }}
         run: |
-          TARGET_REPO="MooChee-lee/Daily-Quests"
-          PR_LIST=$(gh pr list --state open --repo "$TARGET_REPO" --json number -q '.[].number')
-          if [ -z "$PR_LIST" ]; then
-            echo "没有找到可 review 的 PR"
-            exit 0
-          fi
-          PR_NUM=$(echo "$PR_LIST" | shuf -n1)
-          echo "准备对 PR #$PR_NUM 进行自动 Review"
-          gh pr review "$PR_NUM" --approve --body "🤖 自动 Review: 看起来不错！" --repo "$TARGET_REPO"
+  
+         TARGET_REPO="MooChee-lee/Daily-Quests"
 
-  auto-resolve:
-    if: github.event_name == 'pull_request'
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout PR branch
-        uses: actions/checkout@v3
-        with:
-          fetch-depth: 0
-          token: ${{ secrets.GITHUB_TOKEN }}
-          ref: ${{ github.head_ref }}
+         PR_LIST=$(gh pr list --state open --repo "$TARGET_REPO" --json number -q '.[].number')
 
-      - name: Configure Git
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-
-      - name: Merge target branch into PR branch
-        run: |
-          git fetch origin ${{ github.base_ref }}
-          git merge origin/${{ github.base_ref }} --no-commit || true
-
-      - name: Auto merge update.md (keep order + prepend log)
-        run: |
-          if git diff --name-only --diff-filter=U | grep -q "update.md"; then
-            echo "⚡ 检测到 update.md 冲突，自动合并并记录日志..."
-            awk '/^<<<<<<< / {side=1; next} /^=======/ {side=2; next} /^>>>>>>> / {side=0; next} side==1 {print > "side1.txt"} side==2 {print > "side2.txt"}' update.md
-            cat side1.txt side2.txt | awk '!seen[$0]++' > update.md.merged
-            echo "🤖 Auto-resolved conflict at $(date '+%Y-%m-%d %H:%M:%S') (commit: $(git rev-parse --short HEAD))" | cat - update.md.merged > update.md
-            rm -f side1.txt side2.txt update.md.merged
-            git add update.md
-            git commit -m "chore: auto-merge conflict in update.md (keep order + prepend log)"
+         if [ -z "$PR_LIST" ]; then
+         echo "没有找到可 review 的 PR"
+         exit 0
           fi
 
-      - name: Push changes
-        run: |
-          git config --global url."https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/".insteadOf "https://github.com/"
-          git push origin HEAD:${{ github.head_ref }}
-
-      - name: Comment on PR
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          gh pr comment ${{ github.event.pull_request.number }} \
-            --body "🤖 我检测到 **update.md** 存在冲突，并已自动解决。\n日志已更新，并在文件开头插入了解决时间和 commit SHA。" \
-            --repo ${{ github.repository }}
+         PR_NUM=$(echo "$PR_LIST" | shuf -n1)
+         echo "准备对 PR #$PR_NUM 进行自动 Review"
+         gh pr review "$PR_NUM" --approve --body "🤖 自动 Review: 看起来不错！"
