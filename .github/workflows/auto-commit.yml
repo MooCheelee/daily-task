@@ -19,7 +19,7 @@ jobs:
       # 随机延迟 0~24 小时
       - name: Random delay
         run: |
-          DELAY=$((RANDOM % 1))
+          DELAY=$((RANDOM % 86400))
           echo "等待 $DELAY 秒再执行..."
           sleep $DELAY
 
