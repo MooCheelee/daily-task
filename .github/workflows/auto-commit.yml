@@ -84,8 +84,8 @@ jobs:
                          --repo $GITHUB_REPOSITORY
             fi
 
-      # 自动对自己私人仓库 PR 做 Code Review 并评论
-      - name: Auto Review and Comment on Personal PR
+      # 自动对自己私人仓库 PR 做 Review 并自动合并
+      - name: Auto Review and Merge Personal PR
         env:
           GH_TOKEN: ${{ secrets.GH_PAT }}
         run: |
@@ -103,5 +103,8 @@ jobs:
           PR_NUM=$(echo "$PR_LIST" | shuf -n1)
           echo "准备对 PR #$PR_NUM 进行自动 Review"
 
-          # 提交 review + 评论
+          # 提交 review + 评论（确保经过审查流程）
           gh pr review "$PR_NUM" --comment --body "🤖 自动审查并评论：看起来不错！"
+
+          # 自动合并 PR（使用 squash 或 merge）
+          gh pr merge "$PR_NUM" --squash --delete-branch --repo "$TARGET_REPO" --admin
