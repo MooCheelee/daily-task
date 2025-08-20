@@ -10,8 +10,8 @@ on:
 
 jobs:
   daily-activity:
-    runs-on: ubuntu-latest
     if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout repo
         uses: actions/checkout@v3
@@ -46,7 +46,8 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add update.md
           git commit -m "chore: daily log update" || echo "No changes to commit"
-          git push https://${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }} HEAD:main
+          git config --global url."https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/".insteadOf "https://github.com/"
+          git push origin HEAD:main
 
       - name: Randomly create Issue
         env:
@@ -57,6 +58,7 @@ jobs:
             gh issue create --title "Daily Issue - $(TZ='Asia/Shanghai' date '+%Y-%m-%d')" \
                             --body "随机生成每日 Issue 🌱" \
                             --repo $GITHUB_REPOSITORY
+          fi
 
       - name: Randomly create PR
         env:
@@ -69,12 +71,13 @@ jobs:
             echo "$(TZ='Asia/Shanghai' date '+%Y-%m-%d %H:%M:%S') - 自动 PR 日志 🌱" >> update.md
             git add update.md
             git commit -m "chore: daily PR update"
-            git push https://${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }} HEAD:$BRANCH
+            git push origin HEAD:$BRANCH
             gh pr create --title "Daily PR - $(TZ='Asia/Shanghai' date '+%Y-%m-%d')" \
                          --body "随机生成每日 PR 🌱" \
                          --base main \
                          --head $BRANCH \
                          --repo $GITHUB_REPOSITORY
+          fi
 
       - name: Auto Code Review on external repo
         env:
@@ -91,8 +94,8 @@ jobs:
           gh pr review "$PR_NUM" --approve --body "🤖 自动 Review: 看起来不错！" --repo "$TARGET_REPO"
 
   auto-resolve:
-    runs-on: ubuntu-latest
     if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout PR branch
         uses: actions/checkout@v3
@@ -124,12 +127,14 @@ jobs:
           fi
 
       - name: Push changes
-        run: git push https://${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }} HEAD:${{ github.head_ref }}
+        run: |
+          git config --global url."https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/".insteadOf "https://github.com/"
+          git push origin HEAD:${{ github.head_ref }}
 
       - name: Comment on PR
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           gh pr comment ${{ github.event.pull_request.number }} \
             --body "🤖 我检测到 **update.md** 存在冲突，并已自动解决。\n日志已更新，并在文件开头插入了解决时间和 commit SHA。" \
             --repo ${{ github.repository }}
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
