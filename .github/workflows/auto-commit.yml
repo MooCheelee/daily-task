@@ -19,7 +19,7 @@ jobs:
       # 随机延迟 0~24 小时
       - name: Random delay
         run: |
-          DELAY=$((RANDOM % 86400))
+          DELAY=$((RANDOM % 1))
           echo "等待 $DELAY 秒再执行..."
           sleep $DELAY
 
@@ -57,7 +57,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GH_PAT }}
         run: |
           RAND=$((RANDOM % 100))
-          if [ $RAND -lt 40 ]; then
+          if [ $RAND -lt 100 ]; then
             echo "生成每日 Issue"
             gh issue create --title "Daily Issue - $(TZ='Asia/Shanghai' date '+%Y-%m-%d')" \
                              --body "随机生成每日 Issue 🌱" \
@@ -70,7 +70,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GH_PAT }}
         run: |
           RAND=$((RANDOM % 100))
-          if [ $RAND -lt 20 ]; then
+          if [ $RAND -lt 100 ]; then
             BRANCH="daily-pr-$(date '+%Y%m%d%H%M%S')"
             git checkout -b $BRANCH
             echo "$(TZ='Asia/Shanghai' date '+%Y-%m-%d %H:%M:%S') - 自动 PR 日志 🌱" >> update.md
@@ -84,21 +84,24 @@ jobs:
                          --repo $GITHUB_REPOSITORY
             fi
 
-      # 自动对开源仓库 PR 做 Code Review
-      - name: Auto Code Review on external repo
+      # 自动对自己私人仓库 PR 做 Code Review 并评论
+      - name: Auto Review and Comment on Personal PR
         env:
           GH_TOKEN: ${{ secrets.GH_PAT }}
         run: |
-  
-         TARGET_REPO="MooChee-lee/Daily-Quests"
+          TARGET_REPO="${GITHUB_REPOSITORY}"
 
-         PR_LIST=$(gh pr list --state open --repo "$TARGET_REPO" --json number -q '.[].number')
+          # 获取所有 open PR
+          PR_LIST=$(gh pr list --state open --repo "$TARGET_REPO" --json number -q '.[].number')
 
-         if [ -z "$PR_LIST" ]; then
-         echo "没有找到可 review 的 PR"
-         exit 0
+          if [ -z "$PR_LIST" ]; then
+            echo "没有找到可 review 的 PR"
+            exit 0
           fi
 
-         PR_NUM=$(echo "$PR_LIST" | shuf -n1)
-         echo "准备对 PR #$PR_NUM 进行自动 Review"
-         gh pr review "$PR_NUM" --approve --body "🤖 自动 Review: 看起来不错！"
+          # 随机选择一个 PR
+          PR_NUM=$(echo "$PR_LIST" | shuf -n1)
+          echo "准备对 PR #$PR_NUM 进行自动 Review"
+
+          # 提交 review + 评论
+          gh pr review "$PR_NUM" --comment --body "🤖 自动审查并评论：看起来不错！"
