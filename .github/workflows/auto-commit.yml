@@ -57,7 +57,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GH_PAT }}
         run: |
           RAND=$((RANDOM % 100))
-          if [ $RAND -lt 100 ]; then
+          if [ $RAND -lt 30 ]; then
             echo "生成每日 Issue"
             gh issue create --title "Daily Issue - $(TZ='Asia/Shanghai' date '+%Y-%m-%d')" \
                              --body "随机生成每日 Issue 🌱" \
@@ -70,7 +70,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GH_PAT }}
         run: |
           RAND=$((RANDOM % 100))
-          if [ $RAND -lt 100 ]; then
+          if [ $RAND -lt 30 ]; then
             BRANCH="daily-pr-$(date '+%Y%m%d%H%M%S')"
             git checkout -b $BRANCH
             echo "$(TZ='Asia/Shanghai' date '+%Y-%m-%d %H:%M:%S') - 自动 PR 日志 🌱" >> update.md
@@ -108,3 +108,28 @@ jobs:
 
           # 自动合并 PR（使用 squash 或 merge）
           gh pr merge "$PR_NUM" --squash --delete-branch --repo "$TARGET_REPO" --admin
+          
+      # 定期清理已合并的旧分支（7天前）
+      - name: Clean up old merged branches
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+        run: |
+          TARGET_REPO="${GITHUB_REPOSITORY}"
+
+          echo "开始清理 7 天前已合并的分支..."
+          # 获取所有已合并的分支
+          for branch in $(gh api repos/$TARGET_REPO/branches --paginate --jq '.[].name' | grep '^daily-pr-'); do
+            # 检查分支是否已合并进 main
+            if git branch -r --contains origin/$branch | grep -q "origin/main"; then
+              # 检查分支最后一次提交是否超过 7 天
+              LAST_COMMIT=$(gh api repos/$TARGET_REPO/commits/$branch --jq '.commit.committer.date')
+              LAST_COMMIT_TS=$(date -d "$LAST_COMMIT" +%s)
+              NOW=$(date +%s)
+              AGE=$(( (NOW - LAST_COMMIT_TS) / 86400 ))
+
+              if [ $AGE -gt 7 ]; then
+                echo "删除已合并并超过 7 天的分支: $branch"
+                git push origin --delete $branch || true
+              fi
+            fi
+          done
