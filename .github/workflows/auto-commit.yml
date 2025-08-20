@@ -14,12 +14,12 @@ jobs:
       - name: Checkout repo
         uses: actions/checkout@v3
         with:
-          token: ${{ secrets.GH_TOKEN }}
+          token: ${{ secrets.GH_PAT }}  # 用个人 PAT 拉取有写权限的仓库
 
-      # 随机延迟 0~24 小时，模拟随机时间
+      # 随机延迟 0~24 小时
       - name: Random delay
         run: |
-          DELAY=$((RANDOM % 1))
+          DELAY=$((RANDOM % 86400))
           echo "等待 $DELAY 秒再执行..."
           sleep $DELAY
 
@@ -40,32 +40,37 @@ jobs:
       - name: Append daily log
         run: |
           echo "$(TZ='Asia/Shanghai' date '+%Y-%m-%d %H:%M:%S') - 自动提交日志 🌱" >> update.md
+
       - name: Commit and push log
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add update.md
           git commit -m "chore: daily log update" || echo "No changes to commit"
-          git push
+          git push origin main
 
-      # 随机创建 Issue（40% 概率，测试版保持 100%）
+      # 随机创建 Issue
       - name: Randomly create Issue
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
         run: |
           RAND=$((RANDOM % 100))
-          if [ $RAND -lt 100 ]; then
+          if [ $RAND -lt 40 ]; then
             echo "生成每日 Issue"
             gh issue create --title "Daily Issue - $(TZ='Asia/Shanghai' date '+%Y-%m-%d')" \
                              --body "随机生成每日 Issue 🌱" \
                              --repo $GITHUB_REPOSITORY
           fi
-        env:
-          GH_TOKEN: ${{ secrets.GH_TOKEN }}
 
-      # 随机创建 PR（20% 概率，测试版保持 100%）
+      # 随机创建 PR
       - name: Randomly create PR
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
         run: |
           RAND=$((RANDOM % 100))
-          if [ $RAND -lt 100 ]; then
+          if [ $RAND -lt 20 ]; then
             BRANCH="daily-pr-$(date '+%Y%m%d%H%M%S')"
             git checkout -b $BRANCH
             echo "$(TZ='Asia/Shanghai' date '+%Y-%m-%d %H:%M:%S') - 自动 PR 日志 🌱" >> update.md
@@ -77,24 +82,23 @@ jobs:
                          --base main \
                          --head $BRANCH \
                          --repo $GITHUB_REPOSITORY
-          fi
-        env:
-          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+            fi
 
-      # 自动对开源仓库 PR 做 Code Review（贡献图真实显示）
+      # 自动对开源仓库 PR 做 Code Review
       - name: Auto Code Review on external repo
-        run: |
-          TARGET_REPO="MooChee-lee/Daily-Quests"  # 替换为你想 review 的仓库
-          PR_LIST=$(gh pr list --state open --repo $TARGET_REPO --json number -q '.[].number')
-
-          if [ -z "$PR_LIST" ]; then
-            echo "没有找到可 review 的 PR"
-            exit 0
-          fi
-
-          # 随机选一个 PR
-          PR_NUM=$(echo "$PR_LIST" | shuf -n1)
-          echo "准备对 PR #$PR_NUM 进行自动 Review"
-          gh pr review $PR_NUM --approve --body "🤖 自动 Review: 看起来不错！"
         env:
           GH_TOKEN: ${{ secrets.GH_PAT }}
+        run: |
+  
+         TARGET_REPO="MooChee-lee/Daily-Quests"
+
+         PR_LIST=$(gh pr list --state open --repo "$TARGET_REPO" --json number -q '.[].number')
+
+         if [ -z "$PR_LIST" ]; then
+         echo "没有找到可 review 的 PR"
+         exit 0
+          fi
+
+         PR_NUM=$(echo "$PR_LIST" | shuf -n1)
+         echo "准备对 PR #$PR_NUM 进行自动 Review"
+         gh pr review "$PR_NUM" --approve --body "🤖 自动 Review: 看起来不错！"
