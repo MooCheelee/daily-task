@@ -57,7 +57,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GH_PAT }}
         run: |
           RAND=$((RANDOM % 100))
-          if [ $RAND -lt 30 ]; then
+          if [ $RAND -lt 100 ]; then
             echo "生成每日 Issue"
             gh issue create --title "Daily Issue - $(TZ='Asia/Shanghai' date '+%Y-%m-%d')" \
                              --body "随机生成每日 Issue 🌱" \
@@ -70,7 +70,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GH_PAT }}
         run: |
           RAND=$((RANDOM % 100))
-          if [ $RAND -lt 30 ]; then
+          if [ $RAND -lt 100 ]; then
             BRANCH="daily-pr-$(date '+%Y%m%d%H%M%S')"
             git checkout -b $BRANCH
             echo "$(TZ='Asia/Shanghai' date '+%Y-%m-%d %H:%M:%S') - 自动 PR 日志 🌱" >> update.md
