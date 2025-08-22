@@ -15,7 +15,6 @@ jobs:
         uses: actions/checkout@v3
         with:
           token: ${{ secrets.GH_PAT }}  # 用个人 PAT 拉取有写权限的仓库
-          fetch-depth: 0  # 拉取完整历史，便于分支操作
 
       # 随机延迟 0~24 小时
       - name: Random delay
@@ -37,7 +36,7 @@ jobs:
           find . -name "update.md" -mtime +7 -exec rm -f {} \;
           echo "清理完 7 天前日志"
 
-      # 提交每日日志
+      # 提交每日日志（Commit）
       - name: Append daily log
         run: |
           echo "$(TZ='Asia/Shanghai' date '+%Y-%m-%d %H:%M:%S') - 自动提交日志 🌱" >> update.md
@@ -52,7 +51,7 @@ jobs:
           git commit -m "chore: daily log update" || echo "No changes to commit"
           git push origin main
 
-      # 随机创建 Issue（20% 概率）
+      # 随机创建 Issue
       - name: Randomly create Issue
         env:
           GH_TOKEN: ${{ secrets.GH_PAT }}
@@ -61,11 +60,11 @@ jobs:
           if [ $RAND -lt 100 ]; then
             echo "生成每日 Issue"
             gh issue create --title "Daily Issue - $(TZ='Asia/Shanghai' date '+%Y-%m-%d')" \
-                            --body "随机生成每日 Issue 🌱" \
-                            --repo $GITHUB_REPOSITORY
+                             --body "随机生成每日 Issue 🌱" \
+                             --repo $GITHUB_REPOSITORY
           fi
 
-      # 随机创建 PR（40% 概率）
+      # 随机创建 PR
       - name: Randomly create PR
         env:
           GH_TOKEN: ${{ secrets.GH_PAT }}
@@ -83,15 +82,16 @@ jobs:
                          --base main \
                          --head $BRANCH \
                          --repo $GITHUB_REPOSITORY
-          fi
+            fi
 
-      # 自动 Review 并合并私人仓库 PR
+      # 自动对自己私人仓库 PR 做 Review 并自动合并
       - name: Auto Review and Merge Personal PR
         env:
           GH_TOKEN: ${{ secrets.GH_PAT }}
         run: |
           TARGET_REPO="${GITHUB_REPOSITORY}"
 
+          # 获取所有 open PR
           PR_LIST=$(gh pr list --state open --repo "$TARGET_REPO" --json number -q '.[].number')
 
           if [ -z "$PR_LIST" ]; then
@@ -99,35 +99,37 @@ jobs:
             exit 0
           fi
 
+          # 随机选择一个 PR
           PR_NUM=$(echo "$PR_LIST" | shuf -n1)
           echo "准备对 PR #$PR_NUM 进行自动 Review"
 
-          # 评论 + 批准
+          # 提交 review + 评论（确保经过审查流程）
           gh pr review "$PR_NUM" --comment --body "🤖 自动审查并评论：看起来不错！"
-          gh pr review "$PR_NUM" --approve --body "🤖 自动批准"
 
-          # 合并 PR
+          # 自动合并 PR（使用 squash 或 merge）
           gh pr merge "$PR_NUM" --squash --delete-branch --repo "$TARGET_REPO" --admin
-
-      # 清理 7 天前已合并的分支
+          
+      # 定期清理已合并的旧分支（7天前）
       - name: Clean up old merged branches
         env:
           GH_TOKEN: ${{ secrets.GH_PAT }}
         run: |
           TARGET_REPO="${GITHUB_REPOSITORY}"
-          NOW=$(date +%s)
-          echo "开始清理 7 天前已合并的分支..."
 
-          gh pr list --state merged --limit 50 --repo "$TARGET_REPO" \
-            --json headRefName,mergedAt \
-            -q '.[] | select(.headRefName | startswith("daily-pr-")) | "\(.headRefName) \(.mergedAt)"' |
-          while read -r branch merged_at; do
-            if [ -n "$merged_at" ]; then
-              MERGED_TS=$(date -u -d "$merged_at" +%s)
-              AGE=$(( (NOW - MERGED_TS) / 86400 ))
+          echo "开始清理 7 天前已合并的分支..."
+          # 获取所有已合并的分支
+          for branch in $(gh api repos/$TARGET_REPO/branches --paginate --jq '.[].name' | grep '^daily-pr-'); do
+            # 检查分支是否已合并进 main
+            if git branch -r --contains origin/$branch | grep -q "origin/main"; then
+              # 检查分支最后一次提交是否超过 7 天
+              LAST_COMMIT=$(gh api repos/$TARGET_REPO/commits/$branch --jq '.commit.committer.date')
+              LAST_COMMIT_TS=$(date -d "$LAST_COMMIT" +%s)
+              NOW=$(date +%s)
+              AGE=$(( (NOW - LAST_COMMIT_TS) / 86400 ))
+
               if [ $AGE -gt 7 ]; then
-                echo "删除已合并超过 7 天的分支: $branch"
-                git push origin --delete "$branch" || true
+                echo "删除已合并并超过 7 天的分支: $branch"
+                git push origin --delete $branch || true
               fi
             fi
           done
