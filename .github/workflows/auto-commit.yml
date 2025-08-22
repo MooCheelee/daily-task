@@ -109,27 +109,27 @@ jobs:
           # 自动合并 PR（使用 squash 或 merge）
           gh pr merge "$PR_NUM" --squash --delete-branch --repo "$TARGET_REPO" --admin
           
-      # 定期清理已合并的旧分支（7天前）
+      # 定期清理已合并的旧分支
       - name: Clean up old merged branches
         env:
           GH_TOKEN: ${{ secrets.GH_PAT }}
         run: |
           TARGET_REPO="${GITHUB_REPOSITORY}"
 
-          echo "开始清理 7 天前已合并的分支..."
-          # 获取所有已合并的分支
-          for branch in $(gh api repos/$TARGET_REPO/branches --paginate --jq '.[].name' | grep '^daily-pr-'); do
-            # 检查分支是否已合并进 main
-            if git branch -r --contains origin/$branch | grep -q "origin/main"; then
-              # 检查分支最后一次提交是否超过 7 天
-              LAST_COMMIT=$(gh api repos/$TARGET_REPO/commits/$branch --jq '.commit.committer.date')
-              LAST_COMMIT_TS=$(date -d "$LAST_COMMIT" +%s)
-              NOW=$(date +%s)
-              AGE=$(( (NOW - LAST_COMMIT_TS) / 86400 ))
+          echo "开始清理已合并的分支..."
+          # 获取所有已合并 PR 的 head 分支
+          MERGED_BRANCHES=$(gh pr list --state merged --limit 50 --repo "$TARGET_REPO" --json headRefName,mergedAt -q '.[] | select(.headRefName | startswith("daily-pr-")) | "\(.headRefName) \(.mergedAt)"')
 
+          NOW=$(date +%s)
+
+          echo "$MERGED_BRANCHES" | while read -r branch merged_at; do
+            # 计算已合并天数
+            if [ -n "$merged_at" ]; then
+              MERGED_TS=$(date -u -d "$merged_at" +%s)
+              AGE=$(( (NOW - MERGED_TS) / 86400 ))
               if [ $AGE -gt 7 ]; then
-                echo "删除已合并并超过 7 天的分支: $branch"
-                git push origin --delete $branch || true
+                echo "删除已合并超过 7 天的分支: $branch"
+                git push origin --delete "$branch" || true
               fi
             fi
           done
