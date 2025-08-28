@@ -133,3 +133,26 @@ jobs:
               fi
             fi
           done       
+
+      # 自动加热门仓库 Star (修正版)
+      - name: Star trending repositories
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+        run: |
+          export GH_TOKEN=${GH_TOKEN}
+          echo "获取热门仓库..."
+          REPOS=$(gh api 'search/repositories?q=stars:>5000&sort=stars&order=desc&per_page=10' --jq '.items[].full_name')
+
+          COUNT=0
+          for repo in $REPOS; do
+            RAND=$((RANDOM % 100))
+            if [ $RAND -lt 40 ]; then  # 40% 几率
+              echo "⭐ 为仓库加星: $repo"
+              gh api --method PUT "user/starred/$repo"
+              COUNT=$((COUNT+1))
+              if [ $COUNT -ge 3 ]; then
+                echo "已加星 3 个仓库，停止。"
+                break
+              fi
+            fi
+          done
