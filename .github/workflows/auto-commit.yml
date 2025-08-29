@@ -3,6 +3,9 @@ name: Daily GitHub Activity
 on:
   schedule:
     - cron: '0 0 * * *'  # 每天 UTC 0 点触发
+    - cron: '0 6 * * *'   # UTC 6 点
+    - cron: '0 12 * * *'  # UTC 12 点
+    - cron: '0 18 * * *'  # UTC 18 点
   workflow_dispatch:
 
 jobs:
@@ -16,10 +19,10 @@ jobs:
         with:
           token: ${{ secrets.GH_PAT }}  # 用个人 PAT 拉取有写权限的仓库
 
-      # 随机延迟 0~24 小时
+      # 随机延迟 1 小时
       - name: Random delay
         run: |
-          DELAY=$((RANDOM % 1))
+          DELAY=$((RANDOM % 3600))
           echo "等待 $DELAY 秒再执行..."
           sleep $DELAY
 
