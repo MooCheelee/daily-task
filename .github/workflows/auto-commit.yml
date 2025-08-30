@@ -156,6 +156,14 @@ jobs:
             gh repo fork $TRENDING_REPO --clone=false --remote=false
             echo "Fork 完成: $TRENDING_REPO"
           fi
+
+          # 给仓库加 Star（非自己仓库）
+          if [ "$OWNER" != "MooCheeloo" ]; then
+            gh repo star $TRENDING_REPO
+            LOG_LINE="$LOG_LINE - 已加 Star"
+          else
+            LOG_LINE="$LOG_LINE - 跳过 Star（自己仓库）"
+          fi
           
           # 趣味 Emoji/GIF
           EMOJIS=("🌱" "✨" "🐣" "💡" "😎" "🔥" "🚀" "🍀" "🎉" "🤖")
