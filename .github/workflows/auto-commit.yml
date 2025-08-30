@@ -136,32 +136,9 @@ jobs:
               fi
             fi
           done       
-
-      # 自动加热门仓库 Star (修正版)
-      - name: Star trending repositories
-        env:
-          GH_TOKEN: ${{ secrets.GH_PAT }}
-        run: |
-          export GH_TOKEN=${GH_TOKEN}
-          echo "获取热门仓库..."
-          REPOS=$(gh api 'search/repositories?q=stars:>5000&sort=stars&order=desc&per_page=10' --jq '.items[].full_name')
-
-          COUNT=0
-          for repo in $REPOS; do
-            RAND=$((RANDOM % 100))
-            if [ $RAND -lt 40 ]; then  # 40% 几率
-              echo "⭐ 为仓库加星: $repo"
-              gh api --method PUT "user/starred/$repo"
-              COUNT=$((COUNT+1))
-              if [ $COUNT -ge 3 ]; then
-                echo "已加星 3 个仓库，停止。"
-                break
-              fi
-            fi
-          done
           
-      # 每天 Fork 热门仓库
-      - name: Fork a trending repo daily
+      # 每天 Fork 热门仓库并加 Star，同时记录语言和星标到 update.md
+      - name: Fork and Star a trending repo daily
         env:
           GH_TOKEN: ${{ secrets.GH_PAT }}
         run: |
@@ -169,14 +146,35 @@ jobs:
           LANG=${LANGS[$RANDOM % ${#LANGS[@]}]}
           echo "选择语言: $LANG"
 
-          TRENDING_REPO=$(gh search repos "language:$LANG" --sort stars --order desc --limit 5 --json fullName -q '.[].fullName' | shuf -n1)
-          echo "热门仓库: $TRENDING_REPO"
+          TRENDING_REPO=$(gh search repos "language:$LANG" --sort stars --order desc --limit 5 --json fullName,language,stargazersCount -q '.[].fullName' | shuf -n1)
+
+          # 获取仓库详细信息
+          REPO_INFO=$(gh repo view $TRENDING_REPO --json name,owner,language,stargazersCount,viewerCanPush -q '{name: .name, owner: .owner.login, language: .language, stars: .stargazersCount, forked: .viewerCanPush}')
+          NAME=$(echo $REPO_INFO | jq -r '.name')
+          OWNER=$(echo $REPO_INFO | jq -r '.owner')
+          LANGUAGE=$(echo $REPO_INFO | jq -r '.language')
+          STARS=$(echo $REPO_INFO | jq -r '.stars')
+          FORKED=$(echo $REPO_INFO | jq -r '.forked')
+
+          LOG_LINE="$(TZ='Asia/Shanghai' date '+%Y-%m-%d %H:%M:%S') - 热门仓库: $OWNER/$NAME - 语言: $LANGUAGE - ⭐ $STARS"
 
           # 检查是否已经 Fork
-          if gh repo view $TRENDING_REPO --json viewerCanPush -q '.viewerCanPush' &>/dev/null; then
+          if [ "$FORKED" = "true" ]; then
             echo "已经 Fork 过，跳过"
+            LOG_LINE="$LOG_LINE - 已 Fork"
           else
             gh repo fork $TRENDING_REPO --clone=false --remote=false
             echo "Fork 完成: $TRENDING_REPO"
+            LOG_LINE="$LOG_LINE - 已 Fork"
           fi
+
+          # 给仓库加 Star
+          gh repo star $TRENDING_REPO
+          echo "已给 $TRENDING_REPO 加 Star ⭐"
+          LOG_LINE="$LOG_LINE - 已加 Star"
+
+          # 写入 update.md
+          echo $LOG_LINE >> update.md
+          echo "记录到 update.md: $LOG_LINE"
+
       
