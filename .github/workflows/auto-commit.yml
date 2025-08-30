@@ -22,7 +22,7 @@ jobs:
       # 随机延迟 1 小时
       - name: Random delay
         run: |
-          DELAY=$((RANDOM % 3600))
+          DELAY=$((RANDOM % 1))
           echo "等待 $DELAY 秒再执行..."
           sleep $DELAY
 
@@ -159,3 +159,26 @@ jobs:
               fi
             fi
           done
+          
+      # 每三天 Fork 热门仓库（优化版）
+      - name: Fork a trending repo daily
+        if: steps.check_day.outputs.MOD == '0'
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+        run: |
+          LANGS=("python" "javascript" "go" "rust")
+          LANG=${LANGS[$RANDOM % ${#LANGS[@]}]}
+          echo "选择语言: $LANG"
+
+          TRENDING_REPO=$(gh search repos "language:$LANG" --sort stars --order desc --limit 5 --json nameWithOwner -q '.[].nameWithOwner' | shuf -n1)
+          echo "热门仓库: $TRENDING_REPO"
+
+          # 检查是否已经 Fork
+          if gh repo view $TRENDING_REPO --json viewerCanPush -q '.viewerCanPush' &>/dev/null; then
+            echo "已经 Fork 过，跳过"
+          else
+            gh repo fork $TRENDING_REPO --clone=false --remote=false --org $GITHUB_REPOSITORY_OWNER
+            echo "Fork 完成: $TRENDING_REPO"
+          fi
+      
+
