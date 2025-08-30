@@ -156,3 +156,7 @@ jobs:
             gh repo fork $TRENDING_REPO --clone=false --remote=false
             echo "Fork 完成: $TRENDING_REPO"
           fi
+          
+          # 给仓库加 Star
+          gh repo star $TRENDING_REPO
+          echo "已给 $TRENDING_REPO 加 Star ⭐"
