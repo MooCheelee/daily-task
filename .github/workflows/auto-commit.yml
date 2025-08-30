@@ -149,10 +149,6 @@ jobs:
           TRENDING_REPO=$(gh search repos "language:$LANG" --sort stars --order desc --limit 5 --json fullName -q '.[].fullName' | shuf -n1)
           echo "热门仓库: $TRENDING_REPO"
 
-          # 给仓库加 Star
-          gh repo star $TRENDING_REPO
-          echo "已给 $TRENDING_REPO 加 Star ⭐"
-
           # 检查是否已经 Fork
           if gh repo view $TRENDING_REPO --json viewerCanPush -q '.viewerCanPush' &>/dev/null; then
             echo "已经 Fork 过，跳过"
@@ -161,3 +157,20 @@ jobs:
             echo "Fork 完成: $TRENDING_REPO"
           fi
           
+          # 趣味 Emoji/GIF
+          EMOJIS=("🌱" "✨" "🐣" "💡" "😎" "🔥" "🚀" "🍀" "🎉" "🤖")
+          GIFS=("https://media.giphy.com/media/3oEjI6SIIHBdRxXI40/giphy.gif"
+                "https://media.giphy.com/media/l0HlQ7LRalB04Txxi/giphy.gif"
+                "https://media.giphy.com/media/26BRBupa8ZbeJv0nS/giphy.gif")
+          CHOICE=$((RANDOM % 2))
+          if [ $CHOICE -eq 0 ]; then
+            FUN_ITEM=${EMOJIS[$RANDOM % ${#EMOJIS[@]}]}
+          else
+            FUN_ITEM=${GIFS[$RANDOM % ${#GIFS[@]}]}
+          fi
+
+          LOG_LINE="$LOG_LINE - 今日趣味: $FUN_ITEM"
+
+          # 写入日志
+          echo $LOG_LINE >> update.md
+          echo "记录到 update.md: $LOG_LINE"
