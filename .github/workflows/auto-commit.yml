@@ -138,7 +138,7 @@ jobs:
           done       
           
       # 每天 Fork 热门仓库并加 Star + 趣味日志
-      - name: Fork and Star a trending repo daily
+      - name: Fork a trending repo daily
         env:
           GH_TOKEN: ${{ secrets.GH_PAT }}
         run: |
@@ -146,17 +146,17 @@ jobs:
           LANG=${LANGS[$RANDOM % ${#LANGS[@]}]}
           echo "选择语言: $LANG"
 
-          TRENDING_REPO=$(gh search repos "language:$LANG" --sort stars --order desc --limit 5 --json fullName,language,stargazersCount,isFork -q '.[].fullName' | shuf -n1)
+          TRENDING_REPO=$(gh search repos "language:$LANG" --sort stars --order desc --limit 5 --json fullName -q '.[].fullName' | shuf -n1)
+          echo "热门仓库: $TRENDING_REPO"
 
-          REPO_INFO=$(gh repo view $TRENDING_REPO --json name,owner,language,stargazersCount,isFork -q '{name: .name, owner: .owner.login, language: .language, stars: .stargazersCount, forked: .isFork}')
-
-          NAME=$(echo $REPO_INFO | jq -r '.name')
-          OWNER=$(echo $REPO_INFO | jq -r '.owner')
-          LANGUAGE=$(echo $REPO_INFO | jq -r '.language')
-          STARS=$(echo $REPO_INFO | jq -r '.stars')
-          FORKED=$(echo $REPO_INFO | jq -r '.forked')
-          LOG_LINE="$(TZ='Asia/Shanghai' date '+%Y-%m-%d %H:%M:%S') - 热门仓库: $OWNER/$NAME - 语言: $LANGUAGE - ⭐ $STARS"
-
+          # 检查是否已经 Fork
+          if gh repo view $TRENDING_REPO --json viewerCanPush -q '.viewerCanPush' &>/dev/null; then
+            echo "已经 Fork 过，跳过"
+          else
+            gh repo fork $TRENDING_REPO --clone=false --remote=false
+            echo "Fork 完成: $TRENDING_REPO"
+          fi
+          
           # 只 fork 别人的仓库且未 fork
           if [ "$OWNER" != "MooCheelee" ] && [ "$FORKED" = "false" ]; then
             gh repo fork $TRENDING_REPO --clone=false --remote=false
