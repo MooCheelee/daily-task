@@ -145,16 +145,17 @@ jobs:
           LANGS=("python" "javascript" "go" "rust")
           LANG=${LANGS[$RANDOM % ${#LANGS[@]}]}
           echo "选择语言: $LANG"
-
-          TRENDING_REPO=$(gh search repos "language:$LANG" --sort stars --order desc --limit 5 --json fullName,language,stargazersCount -q '.[].fullName' | shuf -n1)
+          
+          TRENDING_REPO=$(gh search repos "language:$LANG" --sort stars --order desc --limit 5 --json nameWithOwner,primaryLanguage,stargazerCount -q '.[].nameWithOwner' | shuf -n1)
 
           # 获取仓库详细信息
-          REPO_INFO=$(gh repo view $TRENDING_REPO --json name,owner,language,stargazersCount,viewerCanPush -q '{name: .name, owner: .owner.login, language: .language, stars: .stargazersCount, forked: .viewerCanPush}')
+          REPO_INFO=$(gh repo view $TRENDING_REPO --json name,owner,primaryLanguage,stargazerCount,viewerCanPush -q '{name: .name, owner: .owner.login, language: .primaryLanguage.name, stars: .stargazerCount, forked: .viewerCanPush}')
           NAME=$(echo $REPO_INFO | jq -r '.name')
           OWNER=$(echo $REPO_INFO | jq -r '.owner')
           LANGUAGE=$(echo $REPO_INFO | jq -r '.language')
           STARS=$(echo $REPO_INFO | jq -r '.stars')
           FORKED=$(echo $REPO_INFO | jq -r '.forked')
+
 
           LOG_LINE="$(TZ='Asia/Shanghai' date '+%Y-%m-%d %H:%M:%S') - 热门仓库: $OWNER/$NAME - 语言: $LANGUAGE - ⭐ $STARS"
 
