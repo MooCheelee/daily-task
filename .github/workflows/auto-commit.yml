@@ -158,7 +158,7 @@ jobs:
           LOG_LINE="$(TZ='Asia/Shanghai' date '+%Y-%m-%d %H:%M:%S') - 热门仓库: $OWNER/$NAME - 语言: $LANGUAGE - ⭐ $STARS"
 
           # 只 fork 别人的仓库且未 fork
-          if [ "$OWNER" != "你的GitHub用户名" ] && [ "$FORKED" = "false" ]; then
+          if [ "$OWNER" != "MooCheelee" ] && [ "$FORKED" = "false" ]; then
             gh repo fork $TRENDING_REPO --clone=false --remote=false
             LOG_LINE="$LOG_LINE - 已 Fork"
           else
