@@ -137,7 +137,7 @@ jobs:
             fi
           done       
           
-     # 每天 Fork 热门仓库并加 Star，同时记录语言和星标到 update.md
+      # 每天 Fork 热门仓库并加 Star + 趣味日志
       - name: Fork and Star a trending repo daily
         env:
           GH_TOKEN: ${{ secrets.GH_PAT }}
@@ -146,34 +146,30 @@ jobs:
           LANG=${LANGS[$RANDOM % ${#LANGS[@]}]}
           echo "选择语言: $LANG"
 
-          TRENDING_REPO=$(gh search repos "language:$LANG" --sort stars --order desc --limit 5 --json fullName,primaryLanguage,stargazerCount -q '.[].fullName' | shuf -n1)
+          TRENDING_REPO=$(gh search repos "language:$LANG" --sort stars --order desc --limit 5 --json fullName,language,stargazersCount,isFork -q '.[].fullName' | shuf -n1)
 
-          REPO_INFO=$(gh repo view $TRENDING_REPO --json name,owner,primaryLanguage,stargazerCount,isFork -q '{name: .name, owner: .owner.login, language: .primaryLanguage.name, stars: .stargazerCount, forked: .isFork}')
+          REPO_INFO=$(gh repo view $TRENDING_REPO --json name,owner,language,stargazersCount,isFork -q '{name: .name, owner: .owner.login, language: .language, stars: .stargazersCount, forked: .isFork}')
 
           NAME=$(echo $REPO_INFO | jq -r '.name')
           OWNER=$(echo $REPO_INFO | jq -r '.owner')
           LANGUAGE=$(echo $REPO_INFO | jq -r '.language')
           STARS=$(echo $REPO_INFO | jq -r '.stars')
           FORKED=$(echo $REPO_INFO | jq -r '.forked')
-
           LOG_LINE="$(TZ='Asia/Shanghai' date '+%Y-%m-%d %H:%M:%S') - 热门仓库: $OWNER/$NAME - 语言: $LANGUAGE - ⭐ $STARS"
 
-          if [ "$FORKED" = "true" ]; then
-            LOG_LINE="$LOG_LINE - 已 Fork"
-          else
+          # 只 fork 别人的仓库且未 fork
+          if [ "$OWNER" != "你的GitHub用户名" ] && [ "$FORKED" = "false" ]; then
             gh repo fork $TRENDING_REPO --clone=false --remote=false
             LOG_LINE="$LOG_LINE - 已 Fork"
+          else
+            LOG_LINE="$LOG_LINE - 跳过 Fork（自己或已 Fork）"
           fi
 
+          # 给仓库加 Star
           gh repo star $TRENDING_REPO
           LOG_LINE="$LOG_LINE - 已加 Star"
-
-          echo $LOG_LINE >> update.md
-          echo "记录到 update.md: $LOG_LINE"
-
-      # 趣味 Emoji/GIF 日志
-      - name: Append daily fun Emoji/GIF
-        run: |
+          
+          # 趣味 Emoji/GIF
           EMOJIS=("🌱" "✨" "🐣" "💡" "😎" "🔥" "🚀" "🍀" "🎉" "🤖")
           GIFS=("https://media.giphy.com/media/3oEjI6SIIHBdRxXI40/giphy.gif"
                 "https://media.giphy.com/media/l0HlQ7LRalB04Txxi/giphy.gif"
@@ -184,6 +180,9 @@ jobs:
           else
             FUN_ITEM=${GIFS[$RANDOM % ${#GIFS[@]}]}
           fi
-          LOG_LINE="$(TZ='Asia/Shanghai' date '+%Y-%m-%d %H:%M:%S') - 今日趣味: $FUN_ITEM"
+
+          LOG_LINE="$LOG_LINE - 今日趣味: $FUN_ITEM"
+
+          # 写入日志
           echo $LOG_LINE >> update.md
-          echo "追加趣味日志: $LOG_LINE"
+          echo "记录到 update.md: $LOG_L
