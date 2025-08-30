@@ -149,6 +149,10 @@ jobs:
           TRENDING_REPO=$(gh search repos "language:$LANG" --sort stars --order desc --limit 5 --json fullName -q '.[].fullName' | shuf -n1)
           echo "热门仓库: $TRENDING_REPO"
 
+          # 给仓库加 Star
+          gh repo star $TRENDING_REPO
+          echo "已给 $TRENDING_REPO 加 Star ⭐"
+
           # 检查是否已经 Fork
           if gh repo view $TRENDING_REPO --json viewerCanPush -q '.viewerCanPush' &>/dev/null; then
             echo "已经 Fork 过，跳过"
@@ -157,6 +161,3 @@ jobs:
             echo "Fork 完成: $TRENDING_REPO"
           fi
           
-          # 给仓库加 Star
-          gh repo star $TRENDING_REPO
-          echo "已给 $TRENDING_REPO 加 Star ⭐"
