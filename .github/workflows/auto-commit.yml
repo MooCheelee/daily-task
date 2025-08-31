@@ -139,25 +139,43 @@ jobs:
             fi
           done       
           
-      # 每天 Fork 热门仓库
-      - name: Fork a trending repo daily
+      
+      - name: Authenticate gh (non-interactive)
         env:
           GH_TOKEN: ${{ secrets.GH_PAT }}
         run: |
-          LANGS=("python" "javascript" "go" "rust")
-          LANG=${LANGS[$RANDOM % ${#LANGS[@]}]}
-          echo "选择语言: $LANG"
+          echo "${GH_TOKEN}" | gh auth login --with-token
 
-          TRENDING_REPO=$(gh search repos "language:$LANG" --sort stars --order desc --limit 5 --json fullName -q '.[].fullName' | shuf -n1)
-          echo "热门仓库: $TRENDING_REPO"
-
-          # 检查是否已经 Fork
-          if gh repo view $TRENDING_REPO --json viewerCanPush -q '.viewerCanPush' &>/dev/null; then
-            echo "已经 Fork 过，跳过"
-          else
-            gh repo fork $TRENDING_REPO --clone=false --remote=false
-            echo "Fork 完成: $TRENDING_REPO"
+      - name: Star and fork trending repositories
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+        run: |
+          export GH_TOKEN="${GH_TOKEN}"
+          echo "获取热门仓库..."
+          REPOS=$(gh api 'search/repositories?q=stars:>5000&sort=stars&order=desc&per_page=10' --jq '.items[].full_name' || true)
+          if [ -z "$REPOS" ]; then
+            echo "未能获取到仓库列表，结束。"
+            exit 0
           fi
+
+          COUNT=0
+          for repo in $REPOS; do
+            RAND=$((RANDOM % 100))
+            if [ $RAND -lt 40 ]; then
+              echo "⭐ 为仓库加星: $repo"
+              gh api --method PUT "user/starred/$repo" || echo "加星失败: $repo"
+
+              echo "🍴 Fork 仓库: $repo"
+              gh repo fork "$repo" --clone=false --remote=false || echo "Fork 失败: $repo"
+
+              COUNT=$((COUNT+1))
+              sleep $((RANDOM % 5))  # 短随机延迟，避免瞬间大量请求
+              if [ $COUNT -ge 1 ]; then
+                echo "已加星并 fork 1 个仓库，停止。"
+                break
+              fi
+            fi
+          done
       
           # 趣味 Emoji/GIF
           EMOJIS=("🌱" "✨" "🐣" "💡" "😎" "🔥" "🚀" "🍀" "🎉" "🤖")
