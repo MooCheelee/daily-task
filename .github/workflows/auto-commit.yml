@@ -155,7 +155,7 @@ jobs:
           COUNT=0
           for repo in $REPOS; do
             RAND=$((RANDOM % 100))
-            if [ $RAND -lt 40 ]; then
+            if [ $RAND -lt 100 ]; then
               echo "⭐ 为仓库加星: $repo"
               gh api --method PUT "user/starred/$repo" || echo "加星失败: $repo"
               echo "$(TZ='Asia/Shanghai' date '+%H:%M:%S') - ⭐ 加星: $repo" >> "$LOG_FILE"
