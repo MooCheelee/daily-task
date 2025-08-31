@@ -172,6 +172,16 @@ jobs:
               fi
             fi
           done
+
+          if [ $CHOSEN -eq 0 ]; then
+            echo "$(date '+%H:%M:%S') - ℹ️ 本次未选中任何仓库（概率原因）" >> "$LOG_FILE"
+          fi
+
+          echo "===== 执行结束 $(date '+%Y-%m-%d %H:%M:%S') =====" >> "$LOG_FILE"
+          echo "" >> "$LOG_FILE"
+
+          # （可选）只保留最近 200 行，防止日志无限增长
+          tail -n 200 "$LOG_FILE" > "$LOG_FILE.tmp" && mv "$LOG_FILE.tmp" "$LOG_FILE"
       
           # 趣味 Emoji/GIF
           EMOJIS=("🌱" "✨" "🐣" "💡" "😎" "🔥" "🚀" "🍀" "🎉" "🤖")
