@@ -2,7 +2,7 @@ name: Daily GitHub Activity
 
 on:
   schedule:
-    - cron: '0 0 * * *'  # 每天 UTC 0 点触发一次
+    - cron: '0 0 * * *'   # 每天 UTC 0 点触发
   workflow_dispatch:
 
 jobs:
@@ -10,142 +10,157 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      # 拉取仓库
       - name: Checkout repo
         uses: actions/checkout@v3
         with:
           token: ${{ secrets.GH_PAT }}
 
+      # 确保 update.md 文件存在
+      - name: Ensure update.md exists
+        run: |
+          if [ ! -f update.md ]; then
+            echo "# Daily Commit Log" > update.md
+          fi
+
       # 随机决定今天执行多少次 (3~6)
       - name: Decide random run count
         id: run_count
         run: |
-          COUNT=$(( (RANDOM % 4) + 3 ))  # 3 ~ 6
+          COUNT=$(( (RANDOM % 4) + 3 ))
           echo "今天计划执行 $COUNT 次任务"
           echo "count=$COUNT" >> $GITHUB_OUTPUT
 
-      - name: Run multiple times
+      # 循环执行任务
+      - name: Run tasks
         env:
           GH_TOKEN: ${{ secrets.GH_PAT }}
         run: |
-          for i in $(seq 1 ${{ steps.run_count.outputs.count }}); do
-            echo "------ 第 $i 次运行 ------"
-
-            # 随机延迟 30 分钟 ~ 1 小时
-            DELAY=$(( (RANDOM % 3600) + 1800 ))
-            echo "等待 $DELAY 秒..."
+          COUNT=${{ steps.run_count.outputs.count }}
+          for i in $(seq 1 $COUNT); do
+            DELAY=$(( (RANDOM % 3000) + 600 )) # 10分钟~1小时
+            echo "第 $i 次任务，等待 $DELAY 秒..."
             sleep $DELAY
 
-            # ==== 时间戳 ====
-            LOG_DATE=$(TZ='Asia/Shanghai' date '+%Y-%m-%d %H:%M:%S')
-            DAYOFWEEK=$(date +%u) # 1-7 (周一-周日)
+            ACTION_TIME=$(TZ='Asia/Shanghai' date '+%Y-%m-%d %H:%M:%S')
 
-            # ==== 必做：提交日志 ====
-            echo "------ $LOG_DATE ------" >> update.md
-            echo "🌱 自动提交日志" >> update.md
-
-            git config user.name "github-actions[bot]"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git add update.md
-            git commit -m "chore: daily log update" || echo "No changes to commit"
-            git push origin main || true
-
-            # ==== 摸鱼判断 ====
-            RAND=$((RANDOM % 100))
-            # 周末 30%，工作日 10%
-            if [ $DAYOFWEEK -ge 6 ]; then
-              MOOFISH_THRESHOLD=30
+            # 判断周末
+            DAY_OF_WEEK=$(date +%u)
+            if [ $DAY_OF_WEEK -ge 6 ]; then
+              MOGU=$((RANDOM % 100))
+              if [ $MOGU -lt 30 ]; then
+                echo "[$ACTION_TIME] 😴 摸鱼，仅写日志" >> update.md
+                continue
+              fi
             else
-              MOOFISH_THRESHOLD=10
+              MOGU=$((RANDOM % 100))
+              if [ $MOGU -lt 10 ]; then
+                echo "[$ACTION_TIME] 😴 摸鱼，仅写日志" >> update.md
+                continue
+              fi
             fi
 
-            if [ $RAND -lt $MOOFISH_THRESHOLD ]; then
-              echo "😴 第 $i 次运行选择摸鱼，仅写日志"
-              echo "😴 摸鱼，仅写日志" >> update.md
-              git add update.md
-              git commit -m "chore: log only (moofish)" || true
-              git push origin main || true
-              continue
-            fi
+            # 必写日志
+            echo "[$ACTION_TIME] 🌱 自动提交日志" >> update.md
 
-            # ==== 随机选择额外行为 (1~3 个) ====
-            ACTIONS=("issue" "pr" "review" "star")
-            COUNT=$(( (RANDOM % 3) + 1 ))
-            SHUFFLED=$(printf "%s\n" "${ACTIONS[@]}" | shuf | head -n $COUNT)
+            # 随机选动作 (1~3 个)
+            ACTION_COUNT=$(( (RANDOM % 3) + 1 ))
+            for j in $(seq 1 $ACTION_COUNT); do
+              ACTIONS=("issue" "pr" "review" "star")
+              PICK=${ACTIONS[$((RANDOM % ${#ACTIONS[@]}))]}
 
-            for action in $SHUFFLED; do
-              case $action in
+              case $PICK in
                 issue)
-                  ISSUE_TITLE="Daily Issue - $LOG_DATE"
-                  gh issue create --title "$ISSUE_TITLE" \
-                                  --body "随机生成每日 Issue 🌱" \
-                                  --repo $GITHUB_REPOSITORY || true
-                  echo "📌 创建 Issue: $ISSUE_TITLE" >> update.md
+                  gh issue create \
+                    --title "Daily Issue - $ACTION_TIME" \
+                    --body "随机生成每日 Issue 🌱" \
+                    --repo $GITHUB_REPOSITORY
+                  echo "[$ACTION_TIME] 📌 创建 Issue" >> update.md
                   ;;
+
                 pr)
                   BRANCH="daily-pr-$(date '+%Y%m%d%H%M%S')"
                   git checkout -b $BRANCH
-                  echo "🌿 自动 PR 日志" >> update.md
+                  echo "[$ACTION_TIME] 🌿 自动 PR 日志" >> update.md
                   git add update.md
                   git commit -m "chore: daily PR update"
                   git push origin $BRANCH
-                  PR_TITLE="Daily PR - $LOG_DATE"
-                  gh pr create --title "$PR_TITLE" \
-                               --body "随机生成每日 PR 🌱" \
-                               --base main \
-                               --head $BRANCH \
-                               --repo $GITHUB_REPOSITORY || true
-                  git checkout main
-                  echo "🌿 创建 PR: $PR_TITLE" >> update.md
+                  gh pr create \
+                    --title "Daily PR - $ACTION_TIME" \
+                    --body "随机生成每日 PR 🌱" \
+                    --base main \
+                    --head $BRANCH \
+                    --repo $GITHUB_REPOSITORY
+                  echo "[$ACTION_TIME] 🌿 创建 PR: $BRANCH" >> update.md
                   ;;
+
                 review)
-                  TARGET_REPO="${GITHUB_REPOSITORY}"
-                  PR_NUM=$(gh pr list --state open --repo "$TARGET_REPO" --json number --jq '.[0].number')
+                  PR_NUM=$(gh pr list --state open --repo "$GITHUB_REPOSITORY" --json number --jq '.[0].number')
                   if [ -n "$PR_NUM" ]; then
-                    gh pr review "$PR_NUM" --approve --body "🤖 自动审查通过" || true
-                    gh pr merge "$PR_NUM" --squash --delete-branch --repo "$TARGET_REPO" --admin || true
+                    gh pr review "$PR_NUM" --approve --body "🤖 自动审查通过"
+                    gh pr merge "$PR_NUM" --squash --delete-branch --repo "$GITHUB_REPOSITORY" --admin
                     echo "[$ACTION_TIME] 🔍 审查并合并最新 PR #$PR_NUM" >> update.md
                   fi
                   ;;
+
                 star)
-                  REPOS=$(gh api 'search/repositories?q=stars:>5000&sort=stars&order=desc&per_page=10' --jq '.items[].full_name')
+                  REPOS=$(gh api 'search/repositories?q=stars:>5000&sort=stars&order=desc&per_page=20' --jq '.items[].full_name')
                   COUNT=0
                   for repo in $REPOS; do
-                    if [ $((RANDOM % 100)) -lt 40 ]; then
-                      gh api --method PUT "user/starred/$repo" || true
-                      COUNT=$((COUNT+1))
-                      echo "⭐ Star 仓库: $repo" >> update.md
-                      if [ $COUNT -ge 2 ]; then break; fi
-                    fi
+                    gh api --method PUT "user/starred/$repo" || true
+                    echo "[$ACTION_TIME] ⭐ Star 仓库: $repo" >> update.md
+                    COUNT=$((COUNT+1))
+                    if [ $COUNT -ge 2 ]; then break; fi
                   done
                   ;;
               esac
             done
+          done
 
-            # ==== 清理 15 天前日志 ====
-            CUTOFF=$(date -d "15 days ago" '+%Y-%m-%d')
-            awk -v cutoff="$CUTOFF" '
-              /^------/ { logdate = substr($0, 8, 10) }
-              { if (logdate >= cutoff) print $0 }
-            ' update.md > update.tmp
-            mv update.tmp update.md
-            git add update.md
-            git commit -m "chore: clean logs older than 15 days" || true
-            git push origin main || true
+      # 提交日志
+      - name: Commit and push log
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add update.md
+          git commit -m "chore: daily log update" || echo "No changes to commit"
+          git push origin main
 
-            # ==== 清理 7 天前已合并分支 ====
-            echo "🧹 清理 7 天前已合并的分支..."
-            for branch in $(gh api repos/$GITHUB_REPOSITORY/branches --paginate --jq '.[].name' | grep '^daily-pr-'); do
-              if git branch -r --contains origin/$branch | grep -q "origin/main"; then
-                LAST_COMMIT=$(gh api repos/$GITHUB_REPOSITORY/commits/$branch --jq '.commit.committer.date')
-                LAST_COMMIT_TS=$(date -d "$LAST_COMMIT" +%s)
-                NOW=$(date +%s)
-                AGE=$(( (NOW - LAST_COMMIT_TS) / 86400 ))
-                if [ $AGE -gt 7 ]; then
-                  git push origin --delete $branch || true
-                  echo "🗑 删除分支: $branch" >> update.md
-                fi
-              fi
-            done
+      # 清理 15 天前日志
+      - name: Clean old logs
+        run: |
+          TMP_FILE=update_tmp.md
+          START_DATE=$(date -d '15 days ago' '+%Y-%m-%d %H:%M:%S')
+          echo "# Daily Commit Log (保留最近 15 天)" > $TMP_FILE
+          awk -v start="$START_DATE" '{
+            if ($0 ~ /^\[....-..-.. ..:..:..\]/) {
+              log_time = substr($0, 2, 19)
+              if (log_time >= start) print $0
+            } else {
+              print $0
+            }
+          }' update.md >> $TMP_FILE
+          mv $TMP_FILE update.md
 
-            echo "✅ 第 $i 次执行完成"
+      # 清理 7 天前已合并的旧分支
+      - name: Clean up old merged branches
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+        run: |
+          TARGET_REPO="${GITHUB_REPOSITORY}"
+          NOW=$(date +%s)
+
+          echo "开始清理 7 天前已合并的分支..."
+          for branch in $(gh api repos/$TARGET_REPO/branches --paginate --jq '.[].name' | grep '^daily-pr-'); do
+            LAST_COMMIT=$(gh api repos/$TARGET_REPO/commits/$branch --jq '.commit.committer.date')
+            LAST_COMMIT_TS=$(date -d "$LAST_COMMIT" +%s)
+            AGE=$(( (NOW - LAST_COMMIT_TS) / 86400 ))
+
+            MERGED=$(gh api repos/$TARGET_REPO/compare/$branch...main --jq '.status')
+            if [ "$MERGED" = "behind" ] && [ $AGE -gt 7 ]; then
+              echo "删除已合并并超过 7 天的分支: $branch"
+              gh api --method DELETE repos/$TARGET_REPO/git/refs/heads/$branch || true
+            fi
           done
