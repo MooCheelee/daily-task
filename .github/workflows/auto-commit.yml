@@ -97,7 +97,7 @@ jobs:
                 review)
                   PR_NUM=$(gh pr list --state open --repo "$GITHUB_REPOSITORY" --json number --jq '.[0].number')
                   if [ -n "$PR_NUM" ]; then
-                    gh pr review "$PR_NUM" --approve --body "🤖 自动审查通过"
+                    gh pr review "$PR_NUM" --comment --body "🤖 自动审查（自仓库无需 approve）"
                     gh pr merge "$PR_NUM" --squash --delete-branch --repo "$GITHUB_REPOSITORY" --admin
                     echo "[$ACTION_TIME] 🔍 审查并合并最新 PR #$PR_NUM" >> update.md
                   fi
