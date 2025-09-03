@@ -99,12 +99,11 @@ jobs:
                   ;;
                 review)
                   TARGET_REPO="${GITHUB_REPOSITORY}"
-                  PR_LIST=$(gh pr list --state open --repo "$TARGET_REPO" --json number -q '.[].number')
-                  if [ -n "$PR_LIST" ]; then
-                    PR_NUM=$(echo "$PR_LIST" | shuf -n1)
-                    gh pr review "$PR_NUM" --comment --body "🤖 自动审查并评论：看起来不错！" || true
+                  PR_NUM=$(gh pr list --state open --repo "$TARGET_REPO" --json number --jq '.[0].number')
+                  if [ -n "$PR_NUM" ]; then
+                    gh pr review "$PR_NUM" --approve --body "🤖 自动审查通过" || true
                     gh pr merge "$PR_NUM" --squash --delete-branch --repo "$TARGET_REPO" --admin || true
-                    echo "🔍 审查并合并 PR #$PR_NUM" >> update.md
+                    echo "[$ACTION_TIME] 🔍 审查并合并最新 PR #$PR_NUM" >> update.md
                   fi
                   ;;
                 star)
