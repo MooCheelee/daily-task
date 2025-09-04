@@ -58,8 +58,7 @@ jobs:
                 ISSUE_URL=$(gh issue create \
                   --title "Daily Issue - $(date '+%Y-%m-%d')" \
                   --body "随机生成每日 Issue 🌱" \
-                  --repo "$GITHUB_REPOSITORY" \
-                  --json url -q .url)
+                  --repo "$GITHUB_REPOSITORY")
                 echo "[$ACTION_TIME] 🐛 创建 Issue $ISSUE_URL" >> "$LOG_FILE"
                 ;;
 
