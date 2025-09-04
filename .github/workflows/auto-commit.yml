@@ -20,13 +20,10 @@ jobs:
           GH_TOKEN: ${{ secrets.GH_PAT }}
         run: |
           set -e
-
-          # 日志文件
           LOG_FILE="update.md"
           [ ! -f "$LOG_FILE" ] && echo "# Daily Commit Log" > "$LOG_FILE"
 
-          # 随机次数（2~6）
-          COUNT=$(( (RANDOM % 5) + 2 ))
+          COUNT=$(( (RANDOM % 5) + 2 )) # 2~6 次
           echo "今天执行 $COUNT 次任务"
 
           for i in $(seq 1 $COUNT); do
@@ -42,19 +39,18 @@ jobs:
               continue
             fi
 
-            # 随机选择动作
             case $((RANDOM % 5)) in
-              0)
-                echo "[$ACTION_TIME] 📝 提交日志" >> "$LOG_FILE"
+              0) # Commit 日志
                 git config user.name "github-actions[bot]"
                 git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
                 echo "[$ACTION_TIME] - 自动提交日志 🌱" >> "$LOG_FILE"
                 git add "$LOG_FILE"
                 git commit -m "chore: daily log update" || true
                 git push origin main || true
+                echo "[$ACTION_TIME] 📝 提交日志" >> "$LOG_FILE"
                 ;;
 
-              1)
+              1) # 创建 Issue
                 ISSUE_URL=$(gh issue create \
                   --title "Daily Issue - $(date '+%Y-%m-%d')" \
                   --body "随机生成每日 Issue 🌱" \
@@ -62,9 +58,11 @@ jobs:
                 echo "[$ACTION_TIME] 🐛 创建 Issue $ISSUE_URL" >> "$LOG_FILE"
                 ;;
 
-              2)
+              2) # 创建 PR
                 BRANCH="daily-pr-$(date '+%Y%m%d%H%M%S')"
                 git checkout -b "$BRANCH"
+                git config user.name "github-actions[bot]"
+                git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
                 echo "[$ACTION_TIME] - 自动 PR 日志 🌱" >> "$LOG_FILE"
                 git add "$LOG_FILE"
                 git commit -m "chore: daily PR update"
@@ -74,12 +72,11 @@ jobs:
                   --body "随机生成每日 PR 🌱" \
                   --base main \
                   --head "$BRANCH" \
-                  --repo "$GITHUB_REPOSITORY" \
-                  --json url -q .url)
+                  --repo "$GITHUB_REPOSITORY")
                 echo "[$ACTION_TIME] 🔀 创建 PR $PR_URL" >> "$LOG_FILE"
                 ;;
 
-              3)
+              3) # 审查并合并 PR
                 PR_NUM=$(gh pr list --state open --repo "$GITHUB_REPOSITORY" --json number --jq '.[0].number')
                 if [ -n "$PR_NUM" ]; then
                   gh pr review "$PR_NUM" --comment --body "🤖 自动审查（自仓库无需 approve）"
@@ -96,7 +93,7 @@ jobs:
                 fi
                 ;;
 
-              4)
+              4) # Star 仓库
                 REPOS=$(gh api 'search/repositories?q=stars:>5000&sort=stars&order=desc&per_page=20' --jq '.items[].full_name')
                 COUNT_STAR=0
                 for repo in $REPOS; do
@@ -111,7 +108,6 @@ jobs:
 
       - name: Clean up old logs (15 days)
         run: |
-          sed -i '1,1!{/^#/!{/^$/!{/^[^[]/!d}}}' update.md
           find . -name "update.md" -mtime +15 -exec rm -f {} \; || true
           echo "🧹 已清理 15 天前的日志"
 
