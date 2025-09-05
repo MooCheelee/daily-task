@@ -79,17 +79,17 @@ jobs:
               3) # 审查并合并 PR
                 PR_NUM=$(gh pr list --state open --repo "$GITHUB_REPOSITORY" --json number --jq '.[0].number')
                 if [ -n "$PR_NUM" ]; then
-                  gh pr review "$PR_NUM" --comment --body "🤖 自动审查（自仓库无需 approve）"
+                  echo "找到 PR #$PR_NUM，等待 GitHub 计算合并状态..."
                   sleep 20
                   MERGEABLE=$(gh pr view "$PR_NUM" --repo "$GITHUB_REPOSITORY" --json mergeable --jq '.mergeable')
                   if [ "$MERGEABLE" = "MERGEABLE" ]; then
                     gh pr merge "$PR_NUM" --squash --delete-branch --repo "$GITHUB_REPOSITORY" --admin
-                    echo "[$ACTION_TIME] 🔍 自动审查并合并 PR #$PR_NUM" >> "$LOG_FILE"
+                    echo "[$ACTION_TIME] ✅ 自动合并 PR #$PR_NUM" >> "$LOG_FILE"
                   else
-                    echo "[$ACTION_TIME] ⚠️ PR #$PR_NUM 暂不可合并" >> "$LOG_FILE"
+                    echo "[$ACTION_TIME] ⚠️ PR #$PR_NUM 暂不可合并 (状态: $MERGEABLE)" >> "$LOG_FILE"
                   fi
                 else
-                  echo "[$ACTION_TIME] ❌ 没有找到可审查的 PR" >> "$LOG_FILE"
+                  echo "[$ACTION_TIME] ❌ 没有找到可合并的 PR" >> "$LOG_FILE"
                 fi
                 ;;
 
