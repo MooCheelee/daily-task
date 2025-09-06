@@ -23,7 +23,7 @@ jobs:
           DOW=$(date +%u)  # 1=Mon ... 7=Sun
           if [ $DOW -gt 5 ] && [ $((RANDOM % 100)) -lt 40 ]; then
             echo "lazy=true" >> $GITHUB_OUTPUT
-            echo "今天周末，选择摸鱼 ✨"
+            echo "今天周末，选择摸鱼 ✨" >> update.md
           else
             echo "lazy=false" >> $GITHUB_OUTPUT
           fi
@@ -75,6 +75,27 @@ jobs:
           git add update.md
           git commit -m "chore: daily log update" || echo "No changes"
           git push origin main
+
+       # 更新 README.md 中的日志预览
+      - name: Update README with latest logs
+        if: steps.lazy.outputs.lazy != 'true'
+        run: |
+          # 取最近 10 行日志
+          PREVIEW=$(tail -n 10 update.md)
+
+          # 替换 README.md 中 DAILY_LOG_START 和 DAILY_LOG_END 之间的内容
+          awk -v preview="$PREVIEW" '
+            BEGIN {start=0}
+            /<!-- DAILY_LOG_START -->/ {print; print preview; start=1; next}
+            /<!-- DAILY_LOG_END -->/ {start=0}
+            !start {print}
+          ' README.md > README.tmp
+
+          mv README.tmp README.md
+
+          git add README.md
+          git commit -m "docs: update daily log preview" || echo "No changes"
+          git push origin main   
 
       # 创建 Issue 或 PR
       - name: Create Issue or PR
