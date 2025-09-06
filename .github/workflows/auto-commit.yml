@@ -56,6 +56,13 @@ jobs:
                     "👋 打个招呼：大家好，我来啦~"
                     "✨ 开始今天的 Github 冒险！")
           echo "${OPENINGS[$RANDOM % ${#OPENINGS[@]}]}" >> update.md
+          
+          # 初始化统计计数器
+          echo "COMMIT_COUNT=0" >> $GITHUB_ENV
+          echo "ISSUE_COUNT=0" >> $GITHUB_ENV
+          echo "PR_COUNT=0" >> $GITHUB_ENV
+          echo "STAR_COUNT=0" >> $GITHUB_ENV
+          echo "CLEAN_COUNT=0" >> $GITHUB_ENV
 
       # 清理 7 天前日志
       - name: Clean up logs older than 7 days
@@ -147,7 +154,7 @@ jobs:
             gh api user/starred/$REPO -X PUT
             echo "[$(date '+%H:%M:%S')] ⭐ 路过点了个 Star: $REPO" >> update.md
           done
-# ✅ 稳妥可运行的旧 branch 清理（mergedAt 判断）
+      # ✅ 稳妥可运行的旧 branch 清理（mergedAt 判断）
       - name: Clean up old merged branches
         env:
           GH_TOKEN: ${{ secrets.GH_PAT }}
@@ -166,11 +173,8 @@ jobs:
             fi
           done
           
-      # 写总结
+      # 收尾总结
       - name: Write summary
         run: |
-          LOG_DATE=$(date '+%Y-%m-%d')
-          echo "🌙 今日小结：完成了一些提交/Issue/PR/Star ⭐" >> update.md
-          git add update.md
-          git commit -m "chore: daily summary" || echo "No changes"
-          git push origin main
+          SUMMARY="🌙 今日小结：提交 $COMMIT_COUNT 次，Issue $ISSUE_COUNT 个，PR $PR_COUNT 个，Star $STAR_COUNT 个，清理 $CLEAN_COUNT 次。"
+          echo "$SUMMARY" >> update.md
