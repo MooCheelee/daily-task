@@ -21,7 +21,7 @@ jobs:
         id: lazy
         run: |
           DOW=$(date +%u)  # 1=Mon ... 7=Sun
-          if [ $DOW -gt 5 ] && [ $((RANDOM % 100)) -lt 1 ]; then
+          if [ $DOW -gt 5 ] && [ $((RANDOM % 100)) -lt 40 ]; then
             echo "lazy=true" >> $GITHUB_OUTPUT
             echo "今天周末，选择摸鱼 ✨"
             echo "今天周末，选择摸鱼 ✨" >> update.md
@@ -33,7 +33,7 @@ jobs:
       - name: Random delay
         if: steps.lazy.outputs.lazy != 'true'
         run: |
-          DELAY=$((RANDOM % 2))
+          DELAY=$((RANDOM % 21600))
           echo "等待 $DELAY 秒再执行..."
           sleep $DELAY
 
@@ -129,7 +129,7 @@ jobs:
           repos=$(gh api search/repositories -X GET -F q='stars:>50000 sort:stars' --jq '.items[].full_name' | shuf -n $STAR_COUNT)
           for repo in $repos; do
             gh api --method PUT "user/starred/$repo"
-            echo "⭐ Starred $repo"
+            echo "⭐ Starred $repo" >> update.md
           done
 
       # 清理已合并 7 天前的分支
