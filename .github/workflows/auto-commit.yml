@@ -10,151 +10,168 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      # 拉取仓库
       - name: Checkout repo
         uses: actions/checkout@v3
         with:
           token: ${{ secrets.GH_PAT }}
-          fetch-depth: 0
 
-      - name: Setup environment
+      # 模拟拟人作息 + 随机延迟
+      - name: Human-like delay
         run: |
-          sudo apt-get update -y >/dev/null 2>&1 || true
-          sudo apt-get install -y jq >/dev/null 2>&1 || true
+          HOUR=$(date +%H)
+          # 白天 (8-22点) 延迟短，夜里延迟长
+          if [ $HOUR -ge 8 ] && [ $HOUR -le 22 ]; then
+            DELAY=$((RANDOM % 1))   # 最多延迟 4 小时
+          else
+            DELAY=$((RANDOM % 2))   # 最多延迟 8 小时
+          fi
+          echo "模拟人类作息，等待 $DELAY 秒再执行..."
+          sleep $DELAY
 
-      - name: Run daily tasks
-        env:
-          GH_TOKEN: ${{ secrets.GH_PAT }}
-        run: |
-          set -euo pipefail
-
-          LOG_FILE="update.md"
-          TARGET_REPO="${GITHUB_REPOSITORY}"
-
-          # ========== 周末摸鱼 ==========
-          DOW=$(date +%u)  # 1=Mon ... 7=Sun
+          # 周末懒惰模式
+          DOW=$(date +%u)
           if [ $DOW -gt 5 ]; then
             RAND=$((RANDOM % 100))
-            if [ $RAND -lt 30 ]; then
-              echo "今天是周末，选择摸鱼 ✨" >> $LOG_FILE
+            if [ $RAND -lt 40 ]; then
+              echo "## $(date '+%Y-%m-%d')" >> update.md
+              echo "🛋️ 周末躺平一天，啥也没干。" >> update.md
               exit 0
             fi
           fi
 
-          # ========== 确保日志文件存在 ==========
-          if [ ! -f "$LOG_FILE" ]; then
-            echo "# Daily Commit Log" > "$LOG_FILE"
+      # 确保日志文件存在
+      - name: Ensure update.md exists
+        run: |
+          if [ ! -f update.md ]; then
+            echo "# Daily Commit Log" > update.md
           fi
 
-          # ========== 清理旧日志（15 天前） ==========
-          NOW=$(date +%s)
-          TMP_FILE=$(mktemp)
-          while IFS= read -r line; do
-            if [[ $line =~ ^\[([0-9-]{10}\ [0-9:]{8})\] ]]; then
-              TS=$(date -d "${BASH_REMATCH[1]}" +%s || true)
-              AGE=$(( (NOW - TS) / 86400 ))
-              if [ $AGE -le 15 ]; then
-                echo "$line" >> "$TMP_FILE"
-              fi
-            else
-              echo "$line" >> "$TMP_FILE"
-            fi
-          done < "$LOG_FILE"
-          mv "$TMP_FILE" "$LOG_FILE"
+      # 开场白
+      - name: Write opening log
+        run: |
+          echo "## $(TZ='Asia/Shanghai' date '+%Y-%m-%d')" >> update.md
+          OPENINGS=("🌞 早安，今天也来 GitHub 打个卡！"
+                    "📅 新的一天，又是活跃的一天。"
+                    "👋 打个招呼：大家好，我来啦~"
+                    "✨ 开始今天的 Github 冒险！")
+          echo "${OPENINGS[$RANDOM % ${#OPENINGS[@]}]}" >> update.md
 
-          # ========== 随机执行次数 ==========
-          COUNT=$(( (RANDOM % 7) + 2 ))
-          echo "今天执行 $COUNT 次任务" | tee -a "$LOG_FILE"
+      # 清理 7 天前日志
+      - name: Clean up logs older than 7 days
+        run: |
+          find . -name "update.md" -mtime +7 -exec rm -f {} \; || true
+          echo "🧹 清理了 7 天前的日志" >> update.md
 
-          for ((i=1; i<=COUNT; i++)); do
-            DELAY=$((RANDOM % 1800))  # 最多延迟 30 分钟
-            ACTION_TIME=$(TZ='Asia/Shanghai' date '+%Y-%m-%d %H:%M:%S')
-            echo "[$ACTION_TIME] 第 $i 次任务，等待 $DELAY 秒..." | tee -a "$LOG_FILE"
-            sleep $DELAY
+      # 每日提交
+      - name: Append daily log
+        run: |
+          LOGS=("🌱 随手记下一笔"
+                "📝 留个小脚印"
+                "📌 打卡一下"
+                "🔖 记录今天的点滴")
+          MSG=${LOGS[$RANDOM % ${#LOGS[@]}]}
+          echo "[$(TZ='Asia/Shanghai' date '+%H:%M:%S')] $MSG" >> update.md
 
-            # ===== 提交日志 =====
-            ACTION_TIME=$(TZ='Asia/Shanghai' date '+%Y-%m-%d %H:%M:%S')
-            echo "[$ACTION_TIME] 📝 自动提交日志" >> "$LOG_FILE"
-            git config user.name "github-actions[bot]"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git add "$LOG_FILE"
-            git commit -m "chore: daily log update" || true
-            git push origin main || true
+      - name: Commit and push log
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add update.md
+          git commit -m "chore: daily log update" || echo "No changes to commit"
+          git push origin main
 
-            # ===== 随机创建 Issue =====
-            RAND=$((RANDOM % 10))
-            if [ $RAND -lt 3 ]; then
-              ACTION_TIME=$(TZ='Asia/Shanghai' date '+%Y-%m-%d %H:%M:%S')
-              ISSUE_URL=$(gh issue create \
-                --title "Daily Issue - $(date '+%Y-%m-%d')" \
-                --body "随机生成每日 Issue 🌱" \
-                --repo "$TARGET_REPO")
-              echo "[$ACTION_TIME] 🐞 创建 Issue: $ISSUE_URL" >> "$LOG_FILE"
-            fi
+      # 随机创建 Issue
+      - name: Randomly create Issue
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+        run: |
+          RAND=$((RANDOM % 100))
+          if [ $RAND -lt 100 ]; then
+            BODY=("🌱 随手开了个 Issue"
+                  "✍️ 突然想到点东西，记录一下"
+                  "💡 灵感来了，新建个 Issue"
+                  "🤔 小问题，写下来看看")
+            MSG=${BODY[$RANDOM % ${#BODY[@]}]}
+            echo "[$(date '+%H:%M:%S')] $MSG" >> update.md
+            gh issue create --title "Daily Issue - $(TZ='Asia/Shanghai' date '+%Y-%m-%d')" \
+                            --body "$MSG" \
+                            --repo $GITHUB_REPOSITORY
+          fi
 
-            # ===== 随机创建 PR =====
-            RAND=$((RANDOM % 10))
-            if [ $RAND -lt 3 ]; then
-              BRANCH="daily-pr-$(date '+%Y%m%d%H%M%S')"
-              git checkout -b "$BRANCH"
-              git config user.name "github-actions[bot]"
-              git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-              echo "[$(TZ='Asia/Shanghai' date '+%Y-%m-%d %H:%M:%S')] - 自动 PR 日志 🌱" >> "$LOG_FILE"
-              git add "$LOG_FILE"
-              git commit -m "chore: daily PR update"
-              git push origin "$BRANCH"
-              PR_URL=$(gh pr create \
-                --title "Daily PR - $(date '+%Y-%m-%d')" \
-                --body "随机生成每日 PR 🌱" \
-                --base main \
-                --head "$BRANCH" \
-                --repo "$TARGET_REPO")
-              ACTION_TIME=$(TZ='Asia/Shanghai' date '+%Y-%m-%d %H:%M:%S')
-              echo "[$ACTION_TIME] 🔀 创建 PR: $PR_URL" >> "$LOG_FILE"
-            fi
+      # 随机创建 PR
+      - name: Randomly create PR
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+        run: |
+          RAND=$((RANDOM % 100))
+          if [ $RAND -lt 100 ]; then
+            BRANCH="daily-pr-$(date '+%Y%m%d%H%M%S')"
+            git checkout -b $BRANCH
+            echo "[$(date '+%H:%M:%S')] 🚀 来一发 PR" >> update.md
+            git add update.md
+            git commit -m "chore: daily PR update"
+            git push origin $BRANCH
+            gh pr create --title "Daily PR - $(TZ='Asia/Shanghai' date '+%Y-%m-%d')" \
+                         --body "自动生成的 PR，记录一下 ✨" \
+                         --base main \
+                         --head $BRANCH \
+                         --repo $GITHUB_REPOSITORY
+          fi
 
-            # ===== 自动 Review 并合并 PR =====
-            PR_LIST=$(gh pr list --state open --repo "$TARGET_REPO" --json number -q '.[].number')
-            if [ -n "$PR_LIST" ]; then
-              PR_NUM=$(echo "$PR_LIST" | shuf -n1)
-              ACTION_TIME=$(TZ='Asia/Shanghai' date '+%Y-%m-%d %H:%M:%S')
-              echo "[$ACTION_TIME] 👀 自动审查 PR #$PR_NUM" >> "$LOG_FILE"
-              gh pr review "$PR_NUM" --comment --body "🤖 自动审查：Looks good!"
-              gh pr merge "$PR_NUM" --squash --delete-branch --repo "$TARGET_REPO" || true
-            fi
+      # 自动 Review + 合并
+      - name: Auto Review and Merge PR
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+        run: |
+          TARGET_REPO="${GITHUB_REPOSITORY}"
+          PR_LIST=$(gh pr list --state open --repo "$TARGET_REPO" --json number -q '.[].number')
+          if [ -n "$PR_LIST" ]; then
+            PR_NUM=$(echo "$PR_LIST" | shuf -n1)
+            gh pr review "$PR_NUM" --comment --body "🤖 自动审查一下，看起来挺不错！"
+            gh pr merge "$PR_NUM" --squash --delete-branch --repo "$TARGET_REPO" --admin
+            echo "[$(date '+%H:%M:%S')] ✅ 合并了自己的 PR #$PR_NUM" >> update.md
+          fi
 
-            # ===== 清理 old merged branches =====
-            echo "开始清理已合并 15 天前的分支..."
-            gh api "/repos/$TARGET_REPO/pulls?state=closed&per_page=100" \
-            | jq -r '
-                .[]
-                | select(.merged_at != null)
-                | select(.base.ref == "main")
-                | select(.head.ref | startswith("daily-pr-"))
-                | select((now - (.merged_at | fromdateiso8601)) / 86400 > 15)
-                | .head.ref
-              ' \
-            | while read -r BRANCH; do
-                [ -z "$BRANCH" ] && continue
-                echo "🧹 删除已合并并超过 15 天的分支: $BRANCH"
-                gh api --method DELETE "repos/$TARGET_REPO/git/refs/heads/$BRANCH" || true
-                ACTION_TIME=$(TZ='Asia/Shanghai' date '+%Y-%m-%d %H:%M:%S')
-                echo "[$ACTION_TIME] 🗑 删除分支: $BRANCH" >> "$LOG_FILE"
-              done
-
-            # ===== 随机加 Star 热门仓库 =====
-            REPOS=$(gh api 'search/repositories?q=stars:>5000&sort=stars&order=desc&per_page=10' --jq '.items[].full_name')
-            COUNT_STAR=0
-            for repo in $REPOS; do
-              RAND=$((RANDOM % 100))
-              if [ $RAND -lt 40 ]; then
-                gh api --method PUT "user/starred/$repo"
-                ACTION_TIME=$(TZ='Asia/Shanghai' date '+%Y-%m-%d %H:%M:%S')
-                echo "[$ACTION_TIME] ⭐ 为仓库加星: $repo" >> "$LOG_FILE"
-                COUNT_STAR=$((COUNT_STAR+1))
-                if [ $COUNT_STAR -ge 3 ]; then
-                  break
-                fi
-              fi
-            done
-
+      # 随机 star 仓库
+      - name: Randomly star repos
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+        run: |
+          REPOS=("vercel/next.js" "facebook/react" "microsoft/vscode" "torvalds/linux" "twbs/bootstrap")
+          COUNT=$((1 + RANDOM % 2)) # 1~2 个
+          for i in $(seq 1 $COUNT); do
+            REPO=${REPOS[$RANDOM % ${#REPOS[@]}]}
+            gh api user/starred/$REPO -X PUT
+            echo "[$(date '+%H:%M:%S')] ⭐ 路过点了个 Star: $REPO" >> update.md
           done
+
+      # 清理旧分支
+      - name: Clean up old merged branches
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+        run: |
+          TARGET_REPO="${GITHUB_REPOSITORY}"
+          for branch in $(gh api repos/$TARGET_REPO/branches --paginate --jq '.[].name' | grep '^daily-pr-'); do
+            if git branch -r --contains origin/$branch | grep -q "origin/main"; then
+              LAST_COMMIT=$(gh api repos/$TARGET_REPO/commits/$branch --jq '.commit.committer.date')
+              LAST_COMMIT_TS=$(date -d "$LAST_COMMIT" +%s)
+              NOW=$(date +%s)
+              AGE=$(( (NOW - LAST_COMMIT_TS) / 86400 ))
+              if [ $AGE -gt 7 ]; then
+                git push origin --delete $branch || true
+                echo "[$(date '+%H:%M:%S')] 🧹 删除旧分支: $branch" >> update.md
+              fi
+            fi
+          done
+
+      # 收尾总结
+      - name: Write summary log
+        run: |
+          ENDINGS=("🌙 今日小结：平平无奇但坚持打卡。"
+                   "📖 一天结束，留下一点记录。"
+                   "🌟 今天也算充实。"
+                   "😴 该休息啦，明天见。")
+          echo "${ENDINGS[$RANDOM % ${#ENDINGS[@]}]}" >> update.md
