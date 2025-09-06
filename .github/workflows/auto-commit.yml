@@ -147,30 +147,25 @@ jobs:
             gh api user/starred/$REPO -X PUT
             echo "[$(date '+%H:%M:%S')] ⭐ 路过点了个 Star: $REPO" >> update.md
           done
-
-      # 清理已合并 7 天前的分支
+# ✅ 稳妥可运行的旧 branch 清理（mergedAt 判断）
       - name: Clean up old merged branches
         env:
           GH_TOKEN: ${{ secrets.GH_PAT }}
         run: |
           TARGET_REPO="${GITHUB_REPOSITORY}"
           NOW=$(date +%s)
-
-          for pr in $(gh pr list --state merged --repo "$TARGET_REPO" --json number,headRefName,mergedAt -q '.[] | "\(.number):\(.headRefName):\(.mergedAt)"'); do
-          PR_NUM=$(echo "$pr" | cut -d: -f1)
-          BRANCH=$(echo "$pr" | cut -d: -f2)
-          MERGED_AT=$(echo "$pr" | cut -d: -f3)
-
-          # 使用 UTC 并确保 ISO 8601 完整格式
-          MERGED_TS=$(date -u -d "$MERGED_AT" +%s)
-          AGE=$(( (NOW - MERGED_TS) / 86400 ))
-
-          if [[ "$BRANCH" == daily-pr-* && $AGE -gt 7 ]]; then
-            echo "🗑️ 删除已合并并超过 7 天的分支: $BRANCH (PR #$PR_NUM)"
-            git push origin --delete "$BRANCH" || true
-          fi
+          gh pr list --state merged --repo "$TARGET_REPO" --json number,headRefName,mergedAt -q '.[]' | while read pr; do
+            PR_NUM=$(echo "$pr" | jq -r '.number')
+            BRANCH=$(echo "$pr" | jq -r '.headRefName')
+            MERGED_AT=$(echo "$pr" | jq -r '.mergedAt')
+            MERGED_TS=$(date -u -d "$MERGED_AT" +%s)
+            AGE=$(( (NOW - MERGED_TS) / 86400 ))
+            if [[ "$BRANCH" == daily-pr-* && $AGE -gt 7 ]]; then
+              echo "🗑️ 删除已合并超过 7 天的分支: $BRANCH (PR #$PR_NUM)"
+              git push origin --delete "$BRANCH" || true
+            fi
           done
-
+          
       # 写总结
       - name: Write summary
         run: |
