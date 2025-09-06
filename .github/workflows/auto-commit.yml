@@ -22,9 +22,9 @@ jobs:
           HOUR=$(date +%H)
           # 白天 (8-22点) 延迟短，夜里延迟长
           if [ $HOUR -ge 8 ] && [ $HOUR -le 22 ]; then
-            DELAY=$((RANDOM % 14400))   # 最多延迟 4 小时
+            DELAY=$((RANDOM % 1))   # 最多延迟 4 小时
           else
-            DELAY=$((RANDOM % 28800))   # 最多延迟 8 小时
+            DELAY=$((RANDOM % 2))   # 最多延迟 8 小时
           fi
           echo "模拟人类作息，等待 $DELAY 秒再执行..."
           sleep $DELAY
@@ -148,30 +148,30 @@ jobs:
             echo "[$(date '+%H:%M:%S')] ⭐ 路过点了个 Star: $REPO" >> update.md
           done
 
-      # 清理旧分支
+      # 清理已合并 7 天前的分支
       - name: Clean up old merged branches
         env:
           GH_TOKEN: ${{ secrets.GH_PAT }}
         run: |
           TARGET_REPO="${GITHUB_REPOSITORY}"
-          for branch in $(gh api repos/$TARGET_REPO/branches --paginate --jq '.[].name' | grep '^daily-pr-'); do
-            if git branch -r --contains origin/$branch | grep -q "origin/main"; then
-              LAST_COMMIT=$(gh api repos/$TARGET_REPO/commits/$branch --jq '.commit.committer.date')
-              LAST_COMMIT_TS=$(date -d "$LAST_COMMIT" +%s)
-              NOW=$(date +%s)
-              AGE=$(( (NOW - LAST_COMMIT_TS) / 86400 ))
-              if [ $AGE -gt 7 ]; then
-                git push origin --delete $branch || true
-                echo "[$(date '+%H:%M:%S')] 🧹 删除旧分支: $branch" >> update.md
-              fi
+          NOW=$(date +%s)
+          for pr in $(gh pr list --state merged --repo "$TARGET_REPO" --json number,headRefName,mergedAt -q '.[] | "\(.number):\(.headRefName):\(.mergedAt)"'); do
+            PR_NUM=$(echo "$pr" | cut -d: -f1)
+            BRANCH=$(echo "$pr" | cut -d: -f2)
+            MERGED_AT=$(echo "$pr" | cut -d: -f3)
+            MERGED_TS=$(date -d "$MERGED_AT" +%s)
+            AGE=$(( (NOW - MERGED_TS) / 86400 ))
+            if [[ "$BRANCH" == daily-pr-* && $AGE -gt 7 ]]; then
+              echo "🗑️ 删除已合并并超过 7 天的分支: $BRANCH (PR #$PR_NUM)"
+              git push origin --delete "$BRANCH" || true
             fi
           done
 
-      # 收尾总结
-      - name: Write summary log
+      # 写总结
+      - name: Write summary
         run: |
-          ENDINGS=("🌙 今日小结：平平无奇但坚持打卡。"
-                   "📖 一天结束，留下一点记录。"
-                   "🌟 今天也算充实。"
-                   "😴 该休息啦，明天见。")
-          echo "${ENDINGS[$RANDOM % ${#ENDINGS[@]}]}" >> update.md
+          LOG_DATE=$(date '+%Y-%m-%d')
+          echo "🌙 今日小结：完成了一些提交/Issue/PR/Star ⭐" >> update.md
+          git add update.md
+          git commit -m "chore: daily summary" || echo "No changes"
+          git push origin main
