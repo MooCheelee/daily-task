@@ -32,7 +32,7 @@ jobs:
       - name: Random delay
         if: steps.lazy.outputs.lazy != 'true'
         run: |
-          DELAY=$((RANDOM % 2))
+          DELAY=$((RANDOM % 21600))
           echo "等待 $DELAY 秒再执行..."
           sleep $DELAY
 
