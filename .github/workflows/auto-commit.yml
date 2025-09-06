@@ -74,40 +74,7 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add update.md
           git commit -m "chore: daily log update" || echo "No changes"
-          git push origin main
-
-       # 更新 README.md 中的日志预览
-      - name: Update README with latest logs and snake
-        if: steps.lazy.outputs.lazy != 'true'
-        run: |
-          # 取 update.md 最近 10 行
-          LOG_PREVIEW=$(tail -n 10 update.md)
-
-          # 复制贡献蛇形图到临时目录
-          SNAKE_PATH="dist/github-contribution-grid-snake.svg"
-          if [ ! -f "$SNAKE_PATH" ]; then
-            echo "⚠️ 找不到贡献蛇形图 $SNAKE_PATH，跳过更新"
-            exit 0
-          fi
-
-          # 使用 awk 替换 README.md 中日志预览区域
-          awk -v log_preview="$LOG_PREVIEW" -v snake_path="$SNAKE_PATH" '
-            BEGIN {log_start=0; snake_start=0}
-            /<!-- DAILY_LOG_START -->/ {print; print log_preview; log_start=1; next}
-            /<!-- DAILY_LOG_END -->/ {log_start=0}
-            /<!-- SNAKE_START -->/ {print; print "<p align=\"center\">\n  <img src=\"" snake_path "\" alt=\"Contribution Snake\" />\n</p>"; snake_start=1; next}
-            /<!-- SNAKE_END -->/ {snake_start=0}
-            !log_start && !snake_start {print}
-          ' README.md > README.tmp
-
-          mv README.tmp README.md
-
-          # 提交 README.md 更新
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add README.md
-          git commit -m "docs: update daily log preview & contribution snake" || echo "No changes"
-          git push origin main   
+          git push origin main  
 
       # 创建 Issue 或 PR
       - name: Create Issue or PR
