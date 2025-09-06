@@ -22,9 +22,9 @@ jobs:
           HOUR=$(date +%H)
           # 白天 (8-22点) 延迟短，夜里延迟长
           if [ $HOUR -ge 8 ] && [ $HOUR -le 22 ]; then
-            DELAY=$((RANDOM % 1))   # 最多延迟 4 小时
+            DELAY=$((RANDOM % 14400))   # 最多延迟 4 小时
           else
-            DELAY=$((RANDOM % 2))   # 最多延迟 8 小时
+            DELAY=$((RANDOM % 28800))   # 最多延迟 8 小时
           fi
           echo "模拟人类作息，等待 $DELAY 秒再执行..."
           sleep $DELAY
@@ -89,7 +89,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GH_PAT }}
         run: |
           RAND=$((RANDOM % 100))
-          if [ $RAND -lt 100 ]; then
+          if [ $RAND -lt 30 ]; then
             BODY=("🌱 随手开了个 Issue"
                   "✍️ 突然想到点东西，记录一下"
                   "💡 灵感来了，新建个 Issue"
@@ -107,7 +107,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GH_PAT }}
         run: |
           RAND=$((RANDOM % 100))
-          if [ $RAND -lt 100 ]; then
+          if [ $RAND -lt 20 ]; then
             BRANCH="daily-pr-$(date '+%Y%m%d%H%M%S')"
             git checkout -b $BRANCH
             echo "[$(date '+%H:%M:%S')] 🚀 来一发 PR" >> update.md
