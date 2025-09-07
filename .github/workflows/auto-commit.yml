@@ -1,9 +1,8 @@
 name: Daily GitHub Activity
 
 on:
-  schedule:
-    - cron: '0 00 * * *'  # UTC # 每天 UTC 0 点触发
   workflow_dispatch:
+  workflow_call:
 
 jobs:
   daily-activity:
@@ -15,6 +14,10 @@ jobs:
         uses: actions/checkout@v3
         with:
           token: ${{ secrets.GH_PAT }}
+
+      # 设置时区为北京时间（只影响日志）
+      - name: Set timezone to Asia/Shanghai
+        run: sudo timedatectl set-timezone Asia/Shanghai
 
       # 周末懒惰模式判断
       - name: Weekend lazy check
@@ -28,14 +31,6 @@ jobs:
           else
             echo "lazy=false" >> $GITHUB_OUTPUT
           fi
-    
-      # 随机延迟 0~6 小时
-      - name: Random delay
-        if: steps.lazy.outputs.lazy != 'true'
-        run: |
-          DELAY=$((RANDOM % 21600))
-          echo "等待 $DELAY 秒再执行..."
-          sleep $DELAY
 
       # 确保日志文件存在
       - name: Ensure update.md exists
@@ -65,7 +60,7 @@ jobs:
             echo "[$NOW] ${THOUGHTS[$RANDOM % ${#THOUGHTS[@]}]}" >> $LOG_FILE
           done
 
-      # 提交日志
+      # 提交日志（带 stash 保护，避免 rebase 冲突）
       - name: Commit and push log
         if: steps.lazy.outputs.lazy != 'true'
         env:
@@ -73,14 +68,12 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-
-          git add -A
-          git stash push --include-untracked -m "auto-stash"
-          git pull --rebase origin main || git rebase --abort
-          git stash pop || true
-
+          git add update.md
           git commit -m "chore: daily log update" || echo "No changes"
-          git push origin HEAD:main
+          git stash
+          git pull --rebase origin main || true
+          git stash pop || true
+          git push origin main  
 
       # 创建 Issue 或 PR
       - name: Create Issue or PR
@@ -96,7 +89,7 @@ jobs:
                             --repo $GITHUB_REPOSITORY
             CREATED="true"
           else
-            BRANCH="daily-pr-$(date '+%Y%m%d%H%M%S')"
+            BRANCH="daily-pr-$(date '+%Y%m%d%H%M%S')-$RANDOM"
             git checkout -b $BRANCH
             echo "$(date '+%Y-%m-%d %H:%M:%S') - 自动 PR 日志 🌱" >> update.md
             git add update.md
@@ -109,7 +102,7 @@ jobs:
           fi
           echo "created=$CREATED" >> $GITHUB_OUTPUT
 
-      # 自动 Review + 合并 PR
+      # 自动 Review + 合并 PR（带容错）
       - name: Auto Review and Merge
         if: steps.lazy.outputs.lazy != 'true'
         env:
@@ -120,7 +113,7 @@ jobs:
           if [ -n "$PR_LIST" ]; then
             PR_NUM=$(echo "$PR_LIST" | shuf -n1)
             gh pr review "$PR_NUM" --comment --body "🤖 自动审查：LGTM！"
-            gh pr merge "$PR_NUM" --squash --delete-branch --repo "$TARGET_REPO" --admin
+            gh pr merge "$PR_NUM" --squash --delete-branch --repo "$TARGET_REPO" --admin || true
           fi
 
       # 自动 Star
@@ -145,7 +138,7 @@ jobs:
         run: |
           TARGET_REPO="${GITHUB_REPOSITORY}"
           NOW=$(date +%s)
-          gh pr list --state merged --repo "$TARGET_REPO" --json number,headRefName,mergergedAt -q '.[]' | while read pr; do
+          gh pr list --state merged --repo "$TARGET_REPO" --json number,headRefName,mergedAt -q '.[]' | while read pr; do
             PR_NUM=$(echo "$pr" | jq -r '.number')
             BRANCH=$(echo "$pr" | jq -r '.headRefName')
             MERGED_AT=$(echo "$pr" | jq -r '.mergedAt')
@@ -161,12 +154,10 @@ jobs:
       - name: Write summary
         if: steps.lazy.outputs.lazy != 'true'
         run: |
-          git add -A
-          git stash push --include-untracked -m "auto-stash"
-          git pull --rebase origin main || git rebase --abort
-          git stash pop || true
-
           echo "🌙 今日小结：完成了一些提交/Issue/PR/Star ⭐" >> update.md
           git add update.md
           git commit -m "chore: daily summary" || echo "No changes"
-          git push origin HEAD:main
+          git stash
+          git pull --rebase origin main || true
+          git stash pop || true
+          git push origin main
