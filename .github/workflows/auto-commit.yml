@@ -1,8 +1,11 @@
 name: Daily GitHub Activity
 
+env:
+  TZ: Asia/Shanghai  # 全局使用中国时间
+
 on:
   schedule:
-    - cron: '0 0 * * *'  # 每天 UTC 0 点触发
+    - cron: '0 16 * * *'  # UTC 16:00 = 中国时间 0:00
   workflow_dispatch:
 
 jobs:
@@ -21,7 +24,7 @@ jobs:
         id: lazy
         run: |
           DOW=$(date +%u)  # 1=Mon ... 7=Sun
-          if [ $DOW -gt 5 ] && [ $((RANDOM % 100)) -lt 40 ]; then
+          if [ $DOW -gt 5 ] && [ $((RANDOM % 100)) -lt 1 ]; then
             echo "lazy=true" >> $GITHUB_OUTPUT
             echo "今天周末，选择摸鱼 ✨"
             echo "今天周末，选择摸鱼 ✨" >> update.md
@@ -145,7 +148,7 @@ jobs:
         run: |
           TARGET_REPO="${GITHUB_REPOSITORY}"
           NOW=$(date +%s)
-          gh pr list --state merged --repo "$TARGET_REPO" --json number,headRefName,mergedAt -q '.[]' | while read pr; do
+          gh pr list --state merged --repo "$TARGET_REPO" --json number,headRefName,mergergedAt -q '.[]' | while read pr; do
             PR_NUM=$(echo "$pr" | jq -r '.number')
             BRANCH=$(echo "$pr" | jq -r '.headRefName')
             MERGED_AT=$(echo "$pr" | jq -r '.mergedAt')
