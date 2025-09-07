@@ -33,7 +33,7 @@ jobs:
       - name: Random delay
         if: steps.lazy.outputs.lazy != 'true'
         run: |
-          DELAY=$((RANDOM % 21600))
+          DELAY=$((RANDOM % 2))
           echo "等待 $DELAY 秒再执行..."
           sleep $DELAY
 
@@ -73,9 +73,13 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git fetch origin main
+          git rebase origin/main || git rebase --abort
+
           git add update.md
           git commit -m "chore: daily log update" || echo "No changes"
-          git push origin main  
+          git push origin HEAD:main
 
       # 创建 Issue 或 PR
       - name: Create Issue or PR
@@ -145,7 +149,7 @@ jobs:
             BRANCH=$(echo "$pr" | jq -r '.headRefName')
             MERGED_AT=$(echo "$pr" | jq -r '.mergedAt')
             MERGED_TS=$(date -u -d "$MERGED_AT" +%s)
-            AGE=$(( (NOW - MMERGED_TS) / 86400 ))
+            AGE=$(( (NOW - MERGED_TS) / 86400 ))
             if [[ "$BRANCH" == daily-pr-* && $AGE -gt 7 ]]; then
               echo "🗑️ 删除已合并超过 7 天的分支: $BRANCH (PR #$PR_NUM)"
               git push origin --delete "$BRANCH" || true
@@ -156,7 +160,10 @@ jobs:
       - name: Write summary
         if: steps.lazy.outputs.lazy != 'true'
         run: |
+          git fetch origin main
+          git rebase origin/main || git rebase --abort
+
           echo "🌙 今日小结：完成了一些提交/Issue/PR/Star ⭐" >> update.md
           git add update.md
           git commit -m "chore: daily summary" || echo "No changes"
-          git push origin main
+          git push origin HEAD:main
