@@ -1,11 +1,8 @@
 name: Daily GitHub Activity
 
-env:
-  TZ: Asia/Shanghai  # 全局使用中国时间
-
 on:
   schedule:
-    - cron: '0 16 * * *'  # UTC 16:00 = 中国时间 0:00
+    - cron: '0 00 * * *'  # UTC # 每天 UTC 0 点触发
   workflow_dispatch:
 
 jobs:
