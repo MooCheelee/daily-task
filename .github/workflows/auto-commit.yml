@@ -24,7 +24,7 @@ jobs:
         id: lazy
         run: |
           DOW=$(date +%u)  # 1=Mon ... 7=Sun
-          if [ $DOW -gt 5 ] && [ $((RANDOM % 100)) -lt 1 ]; then
+          if [ $DOW -gt 5 ] && [ $((RANDOM % 100)) -lt 40 ]; then
             echo "lazy=true" >> $GITHUB_OUTPUT
             echo "今天周末，选择摸鱼 ✨"
             echo "今天周末，选择摸鱼 ✨" >> update.md
@@ -36,7 +36,7 @@ jobs:
       - name: Random delay
         if: steps.lazy.outputs.lazy != 'true'
         run: |
-          DELAY=$((RANDOM % 21))
+          DELAY=$((RANDOM % 21600))
           echo "等待 $DELAY 秒再执行..."
           sleep $DELAY
 
