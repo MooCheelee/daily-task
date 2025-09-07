@@ -21,7 +21,7 @@ jobs:
         id: lazy
         run: |
           DOW=$(date +%u)  # 1=Mon ... 7=Sun
-          if [ $DOW -gt 5 ] && [ $((RANDOM % 100)) -lt 1 ]; then
+          if [ $DOW -gt 5 ] && [ $((RANDOM % 100)) -lt 40 ]; then
             echo "lazy=true" >> $GITHUB_OUTPUT
             echo "今天周末，选择摸鱼 ✨"
             echo "今天周末，选择摸鱼 ✨" >> update.md
@@ -33,7 +33,7 @@ jobs:
       - name: Random delay
         if: steps.lazy.outputs.lazy != 'true'
         run: |
-          DELAY=$((RANDOM % 2))
+          DELAY=$((RANDOM % 21))
           echo "等待 $DELAY 秒再执行..."
           sleep $DELAY
 
@@ -74,10 +74,11 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-          git fetch origin main
-          git rebase origin/main || git rebase --abort
+          git add -A
+          git stash push --include-untracked -m "auto-stash"
+          git pull --rebase origin main || git rebase --abort
+          git stash pop || true
 
-          git add update.md
           git commit -m "chore: daily log update" || echo "No changes"
           git push origin HEAD:main
 
@@ -160,8 +161,10 @@ jobs:
       - name: Write summary
         if: steps.lazy.outputs.lazy != 'true'
         run: |
-          git fetch origin main
-          git rebase origin/main || git rebase --abort
+          git add -A
+          git stash push --include-untracked -m "auto-stash"
+          git pull --rebase origin main || git rebase --abort
+          git stash pop || true
 
           echo "🌙 今日小结：完成了一些提交/Issue/PR/Star ⭐" >> update.md
           git add update.md
