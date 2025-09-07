@@ -1,0 +1,23 @@
+name: Daily Random Scheduler
+
+on:
+  schedule:
+    - cron: '0 0 * * *'   # 每天 UTC 0 点触发
+  workflow_dispatch:
+
+jobs:
+  trigger:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Decide random runs
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+        run: |
+          COUNT=$((RANDOM % 4 + 2))   # 每天 2~5 次
+          echo "今天要执行 $COUNT 次 Daily Task"
+
+          for i in $(seq 1 $COUNT); do
+            DELAY=$((RANDOM % 21600))   # 每次延迟 0~6 小时
+            echo "第 $i 次任务将在延迟 $DELAY 秒后执行"
+            nohup bash -c "sleep $DELAY && gh workflow run 'Daily GitHub Activity' -R $GITHUB_REPOSITORY" &
+          done
