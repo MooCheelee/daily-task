@@ -17,7 +17,7 @@ jobs:
           echo "今天要执行 $COUNT 次 Daily Task"
 
           for i in $(seq 1 $COUNT); do
-            DELAY=$((RANDOM % 60))   # 每次延迟 0~6 小时
+            DELAY=$((RANDOM % 21600))   # 每次延迟 0~6 小时
             echo "第 $i 次任务将在延迟 $DELAY 秒后执行"
             nohup bash -c "sleep $DELAY && gh workflow run 'Daily GitHub Activity' -R $GITHUB_REPOSITORY" &
           done
