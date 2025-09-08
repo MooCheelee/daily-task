@@ -194,7 +194,33 @@ jobs:
             git fetch origin main
             git rebase origin/main || git rebase --abort
             git push origin HEAD:main || git push --force-with-lease origin HEAD:
-          
+          else
+            echo "今天不进行 Star/Fork 🌱" >> update.md
+          fi
+
+          echo "STAR_COUNT=$STAR_COUNT" >> $GITHUB_OUTPUT
+          echo "FORK_COUNT=$FORK_COUNT" >> $GITHUB_OUTPUT
+
+      # 12. Clean up old merged branches
+      - name: Clean up old merged branches
+        if: steps.lazy.outputs.lazy != 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+        run: |
+          #!/bin/bash
+          TARGET_REPO="${GITHUB_REPOSITORY}"
+          NOW=$(date +%s)
+          gh pr list --state merged --repo "$TARGET_REPO" --json number,headRefName,mergedAt -q '.[]' | while read pr; do
+            PR_NUM=$(echo "$pr" | jq -r '.number')
+            BRANCH=$(echo "$pr" | jq -r '.headRefName')
+            MERGED_AT=$(echo "$pr" | jq -r '.mergedAt')
+            MERGED_TS=$(date -u -d "$MERGED_AT" +%s)
+            AGE=$(( (NOW - MERGED_TS) / 86400 ))
+            if [[ "$BRANCH" == daily-pr-* && $AGE -gt 7 ]]; then
+              echo "🗑️ 删除已合并超过 7 天的分支: $BRANCH (PR #$PR_NUM)"
+              git push origin --delete "$BRANCH" || true
+            fi
+          done
       # 12. Clean up old merged branches
       - name: Clean up old merged branches
         if: steps.lazy.outputs.lazy != 'true'
