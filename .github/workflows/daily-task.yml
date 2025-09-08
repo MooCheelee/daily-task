@@ -1,6 +1,5 @@
 name: Daily GitHub Activity
 
-
 on:
   schedule:
     - cron: '0 00 * * *'  # UTC # 每天 UTC 0 点触发
