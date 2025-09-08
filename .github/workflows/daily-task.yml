@@ -37,7 +37,7 @@ jobs:
         if: steps.lazy.outputs.lazy != 'true'
         run: |
           #!/bin/bash
-          DELAY=$((RANDOM % 21600))     #随机延迟0~6小时
+          DELAY=$((RANDOM % 2))     #随机延迟0~6小时
           sleep $DELAY
 
       # 4. Ensure update.md exists
@@ -276,4 +276,40 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add $LOG_FILE
           git commit -m "chore: daily summary with counts" || echo "No changes"
+          git push origin HEAD:main
+
+      # 更新 README 统计表格
+      - name: Update README stats
+        if: steps.lazy.outputs.lazy != 'true'
+        run: |
+          #!/bin/bash
+          LOG_FILE="update.md"
+          README_FILE="README.md"
+
+          # 获取今日和最近 7 天统计
+          TODAY=$(date "+%Y-%m-%d")
+          LOG_COUNT=$(grep -c "🌱" "$LOG_FILE" || echo 0)
+          ISSUE_COUNT=$(grep -c "📝" "$LOG_FILE" || echo 0)
+          PR_COUNT=$(grep -c "📦" "$LOG_FILE" || echo 0)
+          MERGED_COUNT=$(grep -c "✅" "$LOG_FILE" || echo 0)
+          STAR_COUNT=$(grep -c "⭐" "$LOG_FILE" || echo 0)
+          FORK_COUNT=$(grep -c "🍴" "$LOG_FILE" || echo 0)
+          CLEAN_LOG_COUNT=$(grep -c "✂️" "$LOG_FILE" || echo 0)
+          CLEAN_BRANCH_COUNT=$(grep -c "🗑️" "$LOG_FILE" || echo 0)
+
+          # 替换 README 表格行
+          sed -i -E "s/(\| 📝 日志条目 \| )[0-9]+ \| [0-9]+ \|/\1$LOG_COUNT \| $LOG_COUNT \|/" $README_FILE
+          sed -i -E "s/(\| 🔧 创建 Issue \| )[0-9]+ \| [0-9]+ \|/\1$ISSUE_COUNT \| $ISSUE_COUNT \|/" $README_FILE
+          sed -i -E "s/(\| 📦 创建 PR \| )[0-9]+ \| [0-9]+ \|/\1$PR_COUNT \| $PR_COUNT \|/" $README_FILE
+          sed -i -E "s/(\| ✅ 合并 PR \| )[0-9]+ \| [0-9]+ \|/\1$MERGED_COUNT \| $MERGED_COUNT \|/" $README_FILE
+          sed -i -E "s/(\| ⭐ Star \| )[0-9]+ \| [0-9]+ \|/\1$STAR_COUNT \| $STAR_COUNT \|/" $README_FILE
+          sed -i -E "s/(\| 🍴 Fork \| )[0-9]+ \| [0-9]+ \|/\1$FORK_COUNT \| $FORK_COUNT \|/" $README_FILE
+          sed -i -E "s/(\| 🧹 清理日志 \| )[0-9]+ \| [0-9]+ \|/\1$CLEAN_LOG_COUNT \| $CLEAN_LOG_COUNT \|/" $README_FILE
+          sed -i -E "s/(\| 🧹 清理分支 \| )[0-9]+ \| [0-9]+ \|/\1$CLEAN_BRANCH_COUNT \| $CLEAN_BRANCH_COUNT \|/" $README_FILE
+
+          # 提交更新
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add $README_FILE
+          git commit -m "chore: update README stats for $TODAY" || echo "No changes"
           git push origin HEAD:main
