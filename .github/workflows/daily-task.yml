@@ -1,128 +1,119 @@
 name: Daily GitHub Activity
 
+env:
+  TZ: Asia/Shanghai  # 全局使用中国时间
+
 on:
   schedule:
-    - cron: '0 0 * * *'   # 每天 UTC 0 点（北京时间早上 8 点）
+    - cron: '0 16 * * *'  # UTC 16:00 = 中国时间 0:00
   workflow_dispatch:
 
-env:
-  LAZY_RATE: 40
-  LAZY_MODE: weekend
-  LAZY_DAYS: "6 7"
-
 jobs:
-  daily:
+  daily-activity:
     runs-on: ubuntu-latest
+
     steps:
+      # 拉取仓库
       - name: Checkout repo
         uses: actions/checkout@v3
         with:
           token: ${{ secrets.GH_PAT }}
 
-      - name: Set timezone to Asia/Shanghai
-        run: sudo timedatectl set-timezone Asia/Shanghai
-
-      # ---------- 周末懒惰模式（修正版） ----------
-      - name: Lazy mode check
+      # 周末懒惰模式判断
+      - name: Weekend lazy check
         id: lazy
         run: |
-          DOW=$(date +%u)
-          RATE=${{ env.LAZY_RATE }}
-          MODE=${{ env.LAZY_MODE }}
-          DAYS="${{ env.LAZY_DAYS }}"
-          TRIGGER=false
-
-          # 判断是否触发懒惰模式
-          if [ "$MODE" = "weekend" ]; then
-            if [ $DOW -gt 5 ]; then
-              TRIGGER=true
-            fi
-          elif [ "$MODE" = "everyday" ]; then
-            TRIGGER=true
-          elif [ "$MODE" = "custom" ]; then
-            for d in $DAYS; do
-              if [ "$DOW" = "$d" ]; then
-                TRIGGER=true
-              fi
-            done
-          fi
-
-          # 根据概率决定是否懒惰
-          if [ "$TRIGGER" = "true" ] && [ $((RANDOM % 100)) -lt $RATE ]; then
+          DOW=$(date +%u)  # 1=Mon ... 7=Sun
+          if [ $DOW -gt 5 ] && [ $((RANDOM % 100)) -lt 40 ]; then
             echo "lazy=true" >> $GITHUB_OUTPUT
-            echo "今天选择摸鱼 ✨" >> update.md
-            git config user.name "github-actions[bot]"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git add update.md
-            git commit -m "chore: lazy day log" || echo "No changes"
-            git pull --rebase origin main || true
-            git push origin main
+            echo "今天周末，选择摸鱼 ✨"
+            echo "今天周末，选择摸鱼 ✨" >> update.md
           else
             echo "lazy=false" >> $GITHUB_OUTPUT
-            
-      # ---------- 随机多次执行任务 ----------
-      - name: Random multiple runs
+          fi
+    
+      # 随机延迟 0~6 小时
+      - name: Random delay
         if: steps.lazy.outputs.lazy != 'true'
         run: |
-          COUNT=$((RANDOM % 4 + 2))
-          echo "今天要执行 $COUNT 次任务"
+          DELAY=$((RANDOM % 21600))
+          echo "等待 $DELAY 秒再执行..."
+          sleep $DELAY
 
-          for i in $(seq 1 $COUNT); do
-            DELAY=$((RANDOM % 30))
-            echo "第 $i 次任务将在延迟 $DELAY 秒后执行"
-            sleep $DELAY
+      # 确保日志文件存在
+      - name: Ensure update.md exists
+        if: steps.lazy.outputs.lazy != 'true'
+        run: |
+          if [ ! -f update.md ]; then
+            echo "# Daily Commit Log" > update.md
+          fi
 
-            echo ">>> 开始第 $i 次任务 <<<"
+      # 开场白
+      - name: Write daily intro
+        if: steps.lazy.outputs.lazy != 'true'
+        run: |
+          LOG_DATE=$(date '+%Y-%m-%d')
+          echo -e "\n## $LOG_DATE" >> update.md
+          MOODS=("✨ 开始今天的 Github 冒险！" "☕ 边喝咖啡边写点代码～" "🛠️ 今天也要折腾一番！" "📖 记录一下日常操作")
+          echo "${MOODS[$RANDOM % ${#MOODS[@]}]}" >> update.md
 
-            if [ ! -f update.md ]; then
-              echo "# Daily Commit Log" > update.md
-            fi
+      # 日常日志
+      - name: Append random logs
+        if: steps.lazy.outputs.lazy != 'true'
+        run: |
+          LOG_FILE="update.md"
+          for i in $(seq 1 $((RANDOM % 3 + 1))); do
+            NOW=$(date '+%H:%M:%S')
+            THOUGHTS=("🌱 随手记下一笔" "✍️ 突然想到点东西" "🚀 来一发 PR" "📌 打个小补丁" "🎯 试试新点子")
+            echo "[$NOW] ${THOUGHTS[$RANDOM % ${#THOUGHTS[@]}]}" >> $LOG_FILE
+          done
 
-            LOG_DATE=$(date '+%Y-%m-%d')
-            echo -e "\n## $LOG_DATE" >> update.md
-            MOODS=("✨ 开始今天的 Github 冒险！" "☕ 边喝咖啡边写点代码～" "🛠️ 今天也要折腾一番！" "📖 记录一下日常操作")
-            echo "${MOODS[$RANDOM % ${#MOODS[@]}]}" >> update.md
-
-            for j in $(seq 1 $((RANDOM % 3 + 1))); do
-              NOW=$(date '+%H:%M:%S')
-              THOUGHTS=("🌱 随手记下一笔" "✍️ 突然想到点东西" "🚀 来一发 PR" "📌 打个小补丁" "🎯 试试新点子")
-              echo "[$NOW] ${THOUGHTS[$RANDOM % ${#THOUGHTS[@]}]}" >> update.md
-            done
-
-            git config user.name "github-actions[bot]"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git add update.md
-            git commit -m "chore: daily log update ($i/$COUNT)" || echo "No changes"
-            git pull --rebase origin main || true
-            git push origin main
-
-            # ---------- 创建 Issue ----------
-      - name: Create Daily Issue
+      # 提交日志
+      - name: Commit and push log
         if: steps.lazy.outputs.lazy != 'true'
         env:
           GH_TOKEN: ${{ secrets.GH_PAT }}
         run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add -A
+          git stash push --include-untracked -m "auto-stash"
+          git pull --rebase origin main || git rebase --abort
+          git stash pop || true
+
+          git commit -m "chore: daily log update" || echo "No changes"
+          git push origin HEAD:main
+
+      # 创建 Issue 或 PR
+      - name: Create Issue or PR
+        if: steps.lazy.outputs.lazy != 'true'
+        id: issuepr
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+        run: |
+          CREATED="false"
           if [ $((RANDOM % 2)) -eq 0 ]; then
             gh issue create --title "Daily Issue - $(date '+%Y-%m-%d')" \
                             --body "随机生成每日 Issue 🌱" \
                             --repo $GITHUB_REPOSITORY
+            CREATED="true"
+          else
+            BRANCH="daily-pr-$(date '+%Y%m%d%H%M%S')"
+            git checkout -b $BRANCH
+            echo "$(date '+%Y-%m-%d %H:%M:%S') - 自动 PR 日志 🌱" >> update.md
+            git add update.md
+            git commit -m "chore: daily PR update"
+            git push origin $BRANCH
+            gh pr create --title "Daily PR - $(date '+%Y-%m-%d')" \
+                         --body "随机生成每日 PR 🌱" \
+                         --base main --head $BRANCH --repo $GITHUB_REPOSITORY
+            CREATED="true"
+          fi
+          echo "created=$CREATED" >> $GITHUB_OUTPUT
 
-      - name: Create Daily PR
-        if: steps.lazy.outputs.lazy != 'true'
-        env:
-          GH_TOKEN: ${{ secrets.GH_PAT }}
-        run: |
-          BRANCH="daily-pr-$(date '+%Y%m%d%H%M%S')"
-          git checkout -b $BRANCH
-          echo "$(date '+%Y-%m-%d %H:%M:%S') - 自动 PR 日志 🌱" >> update.md
-          git add update.md
-          git commit -m "chore: daily PR update"
-          git push origin $BRANCH
-          gh pr create --title "Daily PR - $(date '+%Y-%m-%d')" \
-                       --body "随机生成每日 PR 🌱" \
-                       --base main --head $BRANCH --repo $GITHUB_REPOSITORY
-
-      - name: Auto Review & Merge PRs
+      # 自动 Review + 合并 PR
+      - name: Auto Review and Merge
         if: steps.lazy.outputs.lazy != 'true'
         env:
           GH_TOKEN: ${{ secrets.GH_PAT }}
@@ -133,40 +124,28 @@ jobs:
             PR_NUM=$(echo "$PR_LIST" | shuf -n1)
             gh pr review "$PR_NUM" --comment --body "🤖 自动审查：LGTM！"
             gh pr merge "$PR_NUM" --squash --delete-branch --repo "$TARGET_REPO" --admin
+          fi
 
-      - name: Star Random Repos
+      # 自动 Star
+      - name: Star random repos
         if: steps.lazy.outputs.lazy != 'true'
         env:
           GH_TOKEN: ${{ secrets.GH_PAT }}
         run: |
           STAR_COUNT=$((RANDOM % 2 + 1))
+          echo "今天要点亮 $STAR_COUNT 个小星星 ⭐"
           repos=$(gh api search/repositories -X GET -F q='stars:>50000 sort:stars' --jq '.items[].full_name' | shuf -n $STAR_COUNT)
           for repo in $repos; do
             gh api --method PUT "user/starred/$repo"
             echo "⭐ Starred $repo" >> update.md
+          done
 
-      - name: Clean Old Merged Branches
+      # 清理已合并 7 天前的分支
+      - name: Clean up old merged branches
         if: steps.lazy.outputs.lazy != 'true'
         env:
           GH_TOKEN: ${{ secrets.GH_PAT }}
         run: |
-          NOW_TS=$(date +%s)
-          gh pr list --state merged --repo "$GITHUB_REPOSITORY" --json number,headRefName,mergedAt -q '.[]' | while read pr; do
-            PR_NUM=$(echo "$pr" | jq -r '.number')
-            BRANCH=$(echo "$pr" | jq -r '.headRefName')
-            MERGED_AT=$(echo "$pr" | jq -r '.mergedAt')
-            MERGED_TS=$(date -u -d "$MERGED_AT" +%s)
-            AGE=$(( (NOW_TS - MERGED_TS) / 86400 ))
-            if [[ "$BRANCH" == daily-pr-* && $AGE -gt 7 ]]; then
-              git push origin --delete "$BRANCH" || true
-            fi
-          done
-
-      - name: Daily Summary
-        if: steps.lazy.outputs.lazy != 'true'
-        run: |
-          echo "🌙 今日小结：完成了一些提交/Issue/PR/Star ⭐" >> update.md
-          git add update.md
-          git commit -m "chore: daily summary" || echo "No changes"
-          git pull --rebase origin main || true
-          git push origin main
+          TARGET_REPO="${GITHUB_REPOSITORY}"
+          NOW=$(date +%s)
+          gh pr list --state merged --repo "$TARGET_REPO" --json number,headRefName,merge
