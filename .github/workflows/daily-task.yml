@@ -82,6 +82,24 @@ jobs:
           git commit -m "chore: daily log update" || echo "No changes"
           git push origin HEAD:main
 
+      # 清理七天前日志内容
+      - name: Clean logs older than 7 days
+        run: |
+          FILE="update.md"
+          if [ -f "$FILE" ]; then
+            # 保留最近 7 天的日志块，按 ## YYYY-MM-DD 区分
+            awk -v d="$(date -d '7 days ago' '+%Y-%m-%d')" '
+              /^## / {date=$2}
+              date >= d {print}
+            ' "$FILE" > "$FILE.tmp"
+            mv "$FILE.tmp" "$FILE"
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add "$FILE"
+            git commit -m "chore: clean logs older than 7 days" || echo "No changes"
+            git push origin main
+          fi
+
       # 创建 Issue 或 PR
       - name: Create Issue or PR
         if: steps.lazy.outputs.lazy != 'true'
