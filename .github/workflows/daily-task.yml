@@ -6,9 +6,9 @@ on:
   workflow_dispatch:
 
 env:
-  LAZY_RATE: 30
+  LAZY_RATE: 40
   LAZY_MODE: weekend
-  LAZY_DAYS: "7"
+  LAZY_DAYS: "6 7"
 
 jobs:
   daily:
@@ -22,7 +22,7 @@ jobs:
       - name: Set timezone to Asia/Shanghai
         run: sudo timedatectl set-timezone Asia/Shanghai
 
-      # ---------- 周末懒惰模式 ----------
+      # ---------- 周末懒惰模式（修正版） ----------
       - name: Lazy mode check
         id: lazy
         run: |
@@ -32,6 +32,7 @@ jobs:
           DAYS="${{ env.LAZY_DAYS }}"
           TRIGGER=false
 
+          # 判断是否触发懒惰模式
           if [ "$MODE" = "weekend" ]; then
             if [ $DOW -gt 5 ]; then
               TRIGGER=true
@@ -43,10 +44,11 @@ jobs:
               if [ "$DOW" = "$d" ]; then
                 TRIGGER=true
               fi
-            done   # ✅ 结束 for 循环
-          fi       # ✅ 结束最外层 if
+            done
+          fi
 
-          if $TRIGGER && [ $((RANDOM % 100)) -lt $RATE ]; then
+          # 根据概率决定是否懒惰
+          if [ "$TRIGGER" = "true" ] && [ $((RANDOM % 100)) -lt $RATE ]; then
             echo "lazy=true" >> $GITHUB_OUTPUT
             echo "今天选择摸鱼 ✨" >> update.md
             git config user.name "github-actions[bot]"
@@ -57,7 +59,7 @@ jobs:
             git push origin main
           else
             echo "lazy=false" >> $GITHUB_OUTPUT
-
+            
       # ---------- 随机多次执行任务 ----------
       - name: Random multiple runs
         if: steps.lazy.outputs.lazy != 'true'
