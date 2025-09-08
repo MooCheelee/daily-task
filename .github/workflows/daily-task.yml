@@ -1,70 +1,166 @@
 name: Daily GitHub Activity
 
 on:
-  workflow_dispatch:   # 手动触发
-  workflow_call:       # 允许被 scheduler.yml 调用
+  schedule:
+    - cron: '0 0 * * *'   # 每天 UTC 0 点（北京时间早上 8 点）
+  workflow_dispatch:
+
+env:
+  # 懒惰模式概率（0-100），比如 40 表示 40% 概率
+  LAZY_RATE: 30
+  # 懒惰模式触发条件：weekend / everyday / custom
+  LAZY_MODE: weekend
+  # 自定义懒惰日，仅 LAZY_MODE=custom 时生效，1=Mon ... 7=Sun
+  LAZY_DAYS: "7"
 
 jobs:
-  daily-activity:
+  daily:
     runs-on: ubuntu-latest
-
     steps:
-      # 拉取仓库
       - name: Checkout repo
         uses: actions/checkout@v3
         with:
           token: ${{ secrets.GH_PAT }}
 
-      # 设置时区为北京时间
       - name: Set timezone to Asia/Shanghai
         run: sudo timedatectl set-timezone Asia/Shanghai
 
-      # 确保日志文件存在
-      - name: Ensure update.md exists
+      # ---------- 周末懒惰模式 ----------
+      - name: Lazy mode check
+        id: lazy
         run: |
-          if [ ! -f update.md ]; then
-            echo "# Daily Commit Log" > update.md
+          DOW=$(date +%u)  # 今天星期几，1=Mon ... 7=Sun
+          RATE=${{ env.LAZY_RATE }}
+          MODE=${{ env.LAZY_MODE }}
+          DAYS="${{ env.LAZY_DAYS }}"
+
+          TRIGGER=false
+
+          if [ "$MODE" = "weekend" ]; then
+            if [ $DOW -gt 5 ]; then
+              TRIGGER=true
+            fi
+          elif [ "$MODE" = "everyday" ]; then
+            TRIGGER=true
+          elif [ "$MODE" = "custom" ]; then
+            for d in $DAYS; do
+              if [ "$DOW" = "$d" ]; then
+                TRIGGER=true
+              fi
+            done
           fi
 
-      # 开场白
-      - name: Write daily intro
-        run: |
-          LOG_DATE=$(date '+%Y-%m-%d')
-          echo -e "\n## $LOG_DATE" >> update.md
-          MOODS=("✨ 开始今天的 Github 冒险！" "☕ 边喝咖啡边写点代码～" "🛠️ 今天也要折腾一番！" "📖 记录一下日常操作")
-          echo "${MOODS[$RANDOM % ${#MOODS[@]}]}" >> update.md
+          if $TRIGGER && [ $((RANDOM % 100)) -lt $RATE ]; then
+            echo "lazy=true" >> $GITHUB_OUTPUT
+            echo "今天选择摸鱼 ✨" >> update.md
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add update.md
+            git commit -m "chore: lazy day log" || echo "No changes"
+            git pull --rebase origin main || true
+            git push origin main
+          else
+            echo "lazy=false" >> $GITHUB_OUTPUT
+          fi
 
-      # 日常日志
-      - name: Append random logs
+      # ---------- 随机多次执行任务 ----------
+      - name: Random multiple runs
+        if: steps.lazy.outputs.lazy != 'true'
         run: |
-          LOG_FILE="update.md"
-          for i in $(seq 1 $((RANDOM % 3 + 1))); do
-            NOW=$(date '+%H:%M:%S')
-            THOUGHTS=("🌱 随手记下一笔" "✍️ 突然想到点东西" "🚀 来一发 PR" "📌 打个小补丁" "🎯 试试新点子")
-            echo "[$NOW] ${THOUGHTS[$RANDOM % ${#THOUGHTS[@]}]}" >> $LOG_FILE
+          COUNT=$((RANDOM % 4 + 2))   # 每天 2~5 次
+          echo "今天要执行 $COUNT 次任务"
+
+          for i in $(seq 1 $COUNT); do
+            DELAY=$((RANDOM % 60))   # 每次延迟 0~6 小时
+            echo "第 $i 次任务将在延迟 $DELAY 秒后执行"
+            sleep $DELAY
+
+            echo ">>> 开始第 $i 次任务 <<<"
+
+            # ---------- 确保日志文件存在 ----------
+            if [ ! -f update.md ]; then
+              echo "# Daily Commit Log" > update.md
+            fi
+
+            # ---------- 开场白 ----------
+            LOG_DATE=$(date '+%Y-%m-%d')
+            echo -e "\n## $LOG_DATE" >> update.md
+            MOODS=("✨ 开始今天的 Github 冒险！" "☕ 边喝咖啡边写点代码～" "🛠️ 今天也要折腾一番！" "📖 记录一下日常操作")
+            echo "${MOODS[$RANDOM % ${#MOODS[@]}]}" >> update.md
+
+            # ---------- 日常日志 ----------
+            for j in $(seq 1 $((RANDOM % 3 + 1))); do
+              NOW=$(date '+%H:%M:%S')
+              THOUGHTS=("🌱 随手记下一笔" "✍️ 突然想到点东西" "🚀 来一发 PR" "📌 打个小补丁" "🎯 试试新点子")
+              echo "[$NOW] ${THOUGHTS[$RANDOM % ${#THOUGHTS[@]}]}" >> update.md
+            done
+
+            # ---------- 提交日志 ----------
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add update.md
+            git commit -m "chore: daily log update ($i/$COUNT)" || echo "No changes"
+            git pull --rebase origin main || true
+            git push origin main
+
+            # ---------- 创建 Issue 或 PR ----------
+            CREATED="false"
+            if [ $((RANDOM % 2)) -eq 0 ]; then
+              gh issue create --title "Daily Issue - $(date '+%Y-%m-%d')" \
+                              --body "随机生成每日 Issue 🌱" \
+                              --repo $GITHUB_REPOSITORY
+              CREATED="true"
+            else
+              BRANCH="daily-pr-$(date '+%Y%m%d%H%M%S')"
+              git checkout -b $BRANCH
+              echo "$(date '+%Y-%m-%d %H:%M:%S') - 自动 PR 日志 🌱" >> update.md
+              git add update.md
+              git commit -m "chore: daily PR update"
+              git push origin $BRANCH
+              gh pr create --title "Daily PR - $(date '+%Y-%m-%d')" \
+                           --body "随机生成每日 PR 🌱" \
+                           --base main --head $BRANCH --repo $GITHUB_REPOSITORY
+              CREATED="true"
+            fi
+
+            # ---------- 自动 Review + 合并 PR ----------
+            TARGET_REPO="${GITHUB_REPOSITORY}"
+            PR_LIST=$(gh pr list --state open --repo "$TARGET_REPO" --json number -q '.[].number')
+            if [ -n "$PR_LIST" ]; then
+              PR_NUM=$(echo "$PR_LIST" | shuf -n1)
+              gh pr review "$PR_NUM" --comment --body "🤖 自动审查：LGTM！"
+              gh pr merge "$PR_NUM" --squash --delete-branch --repo "$TARGET_REPO" --admin
+            fi
+
+            # ---------- 自动 Star ----------
+            STAR_COUNT=$((RANDOM % 2 + 1))
+            echo "今天要点亮 $STAR_COUNT 个小星星 ⭐"
+            repos=$(gh api search/repositories -X GET -F q='stars:>50000 sort:stars' --jq '.items[].full_name' | shuf -n $STAR_COUNT)
+            for repo in $repos; do
+              gh api --method PUT "user/starred/$repo"
+              echo "⭐ Starred $repo" >> update.md
+            done
+
+            # ---------- 清理已合并 7 天前的分支 ----------
+            NOW_TS=$(date +%s)
+            gh pr list --state merged --repo "$TARGET_REPO" --json number,headRefName,mergedAt -q '.[]' | while read pr; do
+              PR_NUM=$(echo "$pr" | jq -r '.number')
+              BRANCH=$(echo "$pr" | jq -r '.headRefName')
+              MERGED_AT=$(echo "$pr" | jq -r '.mergedAt')
+              MERGED_TS=$(date -u -d "$MERGED_AT" +%s)
+              AGE=$(( (NOW_TS - MERGED_TS) / 86400 ))
+              if [[ "$BRANCH" == daily-pr-* && $AGE -gt 7 ]]; then
+                echo "🗑️ 删除已合并超过 7 天的分支: $BRANCH (PR #$PR_NUM)"
+                git push origin --delete "$BRANCH" || true
+              fi
+            done
+
+            # ---------- 日终总结（只在最后一次写） ----------
+            if [ $i -eq $COUNT ]; then
+              echo "🌙 今日小结：完成了一些提交/Issue/PR/Star ⭐" >> update.md
+              git add update.md
+              git commit -m "chore: daily summary" || echo "No changes"
+              git pull --rebase origin main || true
+              git push origin main
+            fi
           done
-
-      # 提交日志（加 stash 避免冲突）
-      - name: Commit and push log
-        env:
-          GH_TOKEN: ${{ secrets.GH_PAT }}
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add update.md
-          git commit -m "chore: daily log update" || echo "No changes"
-          git stash
-          git pull --rebase origin main || true
-          git stash pop || true
-          git push origin main
-
-      # 日终总结
-      - name: Write summary
-        run: |
-          echo "🌙 今日小结：完成了一些提交/Issue/PR/Star ⭐" >> update.md
-          git add update.md
-          git commit -m "chore: daily summary" || echo "No changes"
-          git stash
-          git pull --rebase origin main || true
-          git stash pop || true
-          git push origin main
