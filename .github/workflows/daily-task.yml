@@ -97,50 +97,54 @@ jobs:
             git push origin HEAD:main || git push --force-with-lease origin HEAD:main
           fi
 
-      # 9. Create Issue or PR
-      - name: Create Issue or PR
+      # 9a. Create Issue
+      - name: Create Issue
         if: steps.lazy.outputs.lazy != 'true'
-        id: issuepr
+        id: create-issue
         env:
           GH_TOKEN: ${{ secrets.GH_PAT }}
         run: |
+          PROB_ISSUE=100
+          RAND_ISSUE=$((RANDOM % 100 + 1))
           CREATED_ISSUE=0
-          CREATED_PR=0
-          PROB_ISSUE=100   # 30%创建Issue
-          PROB_PR=100      # 40%创建 PR
-          RAND=$(( RANDOM % 100 + 1 ))
-
-          if [ $RAND -le $PROB_ISSUE ]; then
+          if [ $RAND_ISSUE -le $PROB_ISSUE ]; then
             gh issue create --title "Daily Issue - $(date '+%Y-%m-%d %H:%M:%S')" \
                             --body "随机生成每日 Issue 🌱" \
                             --repo $GITHUB_REPOSITORY
-            CREATED_ISSUE=1
             echo "📝 创建了一个 Issue" >> update.md
-          elif [ $RAND -le $((PROB_ISSUE + PROB_PR)) ]; then
+            CREATED_ISSUE=1
+          else
+            echo "今天不创建 Issue 🌱" >> update.md
+          fi
+          echo "CREATED_ISSUE=$CREATED_ISSUE" >> $GITHUB_OUTPUT
+
+      # 9b. Create Pull Request
+      - name: Create Pull Request
+        if: steps.lazy.outputs.lazy != 'true'
+        id: create-pr
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+        run: |
+          PROB_PR=100
+          RAND_PR=$((RANDOM % 100 + 1))
+          CREATED_PR=0
+          if [ $RAND_PR -le $PROB_PR ]; then
             BRANCH="daily-pr-$(date '+%Y%m%d%H%M%S')"
             git checkout -b "$BRANCH"
-            git config user.name "github-actions[bot]"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-
-            echo "$(date '+%Y-%m-%d %H:%M:%S') - 📦 提交了一个 PR" >> update.md
+            echo "$(date '+%Y-%m-%d %H:%M:%S') - 自动 PR 日志 🌱" >> update.md
             git add update.md
             git commit -m "chore: daily PR update"
-            git fetch origin main
-            git rebase origin/main || git rebase --abort
             git push origin "$BRANCH"
-
             gh pr create --title "Daily PR - $(date '+%Y-%m-%d %H:%M:%S')" \
                          --body "随机生成每日 PR 🌱" \
                          --base main --head "$BRANCH" --repo $GITHUB_REPOSITORY
+            echo "📦 提交了一个 PR" >> update.md
             CREATED_PR=1
-            echo "📦 创建了一个 PR" >> update.md
           else
-            echo "今天不创建 Issue 或 PR 🌱" >> update.md
+            echo "今天不创建 PR 🌱" >> update.md
           fi
-
-          echo "CREATED_ISSUE=$CREATED_ISSUE" >> $GITHUB_OUTPUT
           echo "CREATED_PR=$CREATED_PR" >> $GITHUB_OUTPUT
-
+          
       # 10. Auto Review & Merge PR
       - name: Auto Review and Merge
         if: steps.lazy.outputs.lazy != 'true'
