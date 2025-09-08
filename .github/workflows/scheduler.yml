@@ -2,8 +2,8 @@ name: Daily Random Scheduler
 
 on:
   schedule:
-    - cron: '0 0 * * *'   # 每天 UTC 0 点触发
-  workflow_dispatch:
+    - cron: '0 0 * * *'   # 每天 UTC 0 点触发（北京时间 8 点）
+  workflow_dispatch:       # 允许手动执行
 
 jobs:
   trigger:
@@ -13,8 +13,11 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GH_PAT }}
         run: |
+          echo "列出仓库里的所有 workflow，方便调试："
+          gh workflow list -R $GITHUB_REPOSITORY
+
           COUNT=$((RANDOM % 4 + 2))   # 每天 2~5 次
-          echo "今天要执行 $COUNT 次 Daily Task"
+          echo "今天要执行 $COUNT 次 Daily GitHub Activity"
 
           for i in $(seq 1 $COUNT); do
             DELAY=$((RANDOM % 21600))   # 每次延迟 0~6 小时
