@@ -33,14 +33,18 @@ jobs:
           TRIGGER=false
 
           if [ "$MODE" = "weekend" ]; then
-            if [ $DOW -gt 5 ]; then TRIGGER=true; fi
+            if [ $DOW -gt 5 ]; then
+              TRIGGER=true
+            fi
           elif [ "$MODE" = "everyday" ]; then
             TRIGGER=true
           elif [ "$MODE" = "custom" ]; then
             for d in $DAYS; do
-              if [ "$DOW" = "$d" ]; then TRIGGER=true; fi
-            done
-          fi
+              if [ "$DOW" = "$d" ]; then
+                TRIGGER=true
+              fi
+            done   # ✅ 结束 for 循环
+          fi       # ✅ 结束最外层 if
 
           if $TRIGGER && [ $((RANDOM % 100)) -lt $RATE ]; then
             echo "lazy=true" >> $GITHUB_OUTPUT
