@@ -1,11 +1,9 @@
 name: Daily GitHub Activity
 
-env:
-  TZ: Asia/Shanghai  # 全局使用中国时间
 
 on:
   schedule:
-    - cron: '0 16 * * *'  # UTC 16:00 = 中国时间 0:00
+    - cron: '0 00 * * *'  # UTC # 每天 UTC 0 点触发
   workflow_dispatch:
 
 jobs:
@@ -36,7 +34,7 @@ jobs:
       - name: Random delay
         if: steps.lazy.outputs.lazy != 'true'
         run: |
-          DELAY=$((RANDOM % 2))
+          DELAY=$((RANDOM % 21600))
           echo "等待 $DELAY 秒再执行..."
           sleep $DELAY
 
