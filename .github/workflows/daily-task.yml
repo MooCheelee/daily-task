@@ -37,7 +37,7 @@ jobs:
         if: steps.lazy.outputs.lazy != 'true'
         run: |
           #!/bin/bash
-          DELAY=$((RANDOM % 2))     #随机延迟0~6小时
+          DELAY=$((RANDOM % 21600))     #随机延迟0~6小时
           sleep $DELAY
 
       # 4. Ensure update.md exists
@@ -169,7 +169,7 @@ jobs:
           #!/bin/bash
           STAR_COUNT=0
           FORK_COUNT=0
-          PROB_ACTION=50     #50%几率执行Star + Fork
+          PROB_ACTION=30     #30%几率执行Star + Fork
           RAND=$(( RANDOM % 100 + 1 ))
 
           if [ $RAND -le $PROB_ACTION ]; then
