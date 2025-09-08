@@ -24,7 +24,7 @@ jobs:
         id: lazy
         run: |
           DOW=$(date +%u)
-          if [ "$DOW" -gt 5 ] && [ $((RANDOM % 100)) -lt 30 ]; then
+          if [ "$DOW" -gt 5 ] && [ $((RANDOM % 100)) -lt 20 ]; then     # 周末偷懒概率 (%)
             echo "lazy=true" >> $GITHUB_OUTPUT
             echo "今天周末，选择摸鱼 ✨" >> update.md
           else
@@ -35,7 +35,7 @@ jobs:
       - name: Random delay
         if: steps.lazy.outputs.lazy != 'true'
         run: |
-          DELAY=$((RANDOM % 2))   # 0~6小时随机延迟
+          DELAY=$((RANDOM % 21600))   # 0~6小时随机延迟
           sleep $DELAY
 
       # 4. Ensure update.md exists
@@ -50,7 +50,7 @@ jobs:
         run: |
           LOG_DATE=$(date '+%Y-%m-%d %H:%M:%S')
           echo -e "\n## $LOG_DATE" >> update.md
-          MOODS=("✨ 开始今天的 Github 冒险！" "☕ 边喝咖啡边写点代码～" "🛠️ 今天也要折腾一番！" "📖 记录一下日常操作")
+          MOODS=("✨ 开始今天的 Github 任务！" "☕ 边喝咖啡边写点代码～" "🛠️ 今天也要折腾一番！" "📖 记录一下日常操作")
           echo "${MOODS[$RANDOM % ${#MOODS[@]}]}" >> update.md
 
       # 6. Append random logs
@@ -104,7 +104,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GH_PAT }}
         run: |
-          PROB_ISSUE=100
+          PROB_ISSUE=50     # Issue 创建概率（%）
           RAND_ISSUE=$((RANDOM % 100 + 1))
           CREATED_ISSUE=0
           if [ $RAND_ISSUE -le $PROB_ISSUE ]; then
@@ -125,7 +125,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GH_PAT }}
         run: |
-          PROB_PR=100
+          PROB_PR=50     # PR 创建概率（%）
           RAND_PR=$((RANDOM % 100 + 1))
           CREATED_PR=0
           if [ $RAND_PR -le $PROB_PR ]; then
@@ -168,7 +168,7 @@ jobs:
         run: |
           STAR_COUNT=0
           FORK_COUNT=0
-          PROB_ACTION=100
+          PROB_ACTION=50     # Stare & Fork 概率（%）
           RAND=$(( RANDOM % 100 + 1 ))
 
           if [ $RAND -le $PROB_ACTION ]; then
