@@ -35,7 +35,7 @@ jobs:
       - name: Random delay
         if: steps.lazy.outputs.lazy != 'true'
         run: |
-          DELAY=$((RANDOM % 21600))   # 0~6小时随机延迟
+          DELAY=$((RANDOM % 2))   # 0~6小时随机延迟
           sleep $DELAY
 
       # 4. Ensure update.md exists
@@ -168,27 +168,53 @@ jobs:
         run: |
           STAR_COUNT=0
           FORK_COUNT=0
-          PROB_ACTION=50     # Stare & Fork 概率（%）
+          PROB_ACTION=100     # Star & Fork 概率（%）
           RAND=$(( RANDOM % 100 + 1 ))
 
           if [ $RAND -le $PROB_ACTION ]; then
             ACTION_COUNT=$((RANDOM % 2 + 1))
             repos=$(gh api search/repositories -X GET -F q='stars:>50000 sort:stars' --jq '.items[].full_name' | shuf -n $ACTION_COUNT)
             for repo in $repos; do
+              # Star
               gh api --method PUT "user/starred/$repo"
               echo "⭐ Starred $repo" >> update.md
               STAR_COUNT=$((STAR_COUNT+1))
+
+              # Fork
               gh repo fork "$repo" --clone=false
               echo "🍴 Forked $repo" >> update.md
               FORK_COUNT=$((FORK_COUNT+1))
-            done
-            git config user.name "github-actions[bot]"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git add update.md
-            git commit -m "chore: daily Star & Fork update" || echo "No changes"
-            git fetch origin main
-            git rebase origin/main || git rebase --abort
-            git push origin HEAD:main || git push --force-with-lease origin HEAD:main
+
+              # 获取英文描述
+              desc=$(gh api repos/$repo --jq '.description')
+
+              if [ -n "$desc" ]; then
+                # 调用 Google 翻译 API
+                zh_desc=$(curl -s --get \
+                  --data-urlencode "client=gtx" \
+                  --data-urlencode "sl=en" \
+                  --data-urlencode "tl=zh-CN" \
+                  --data-urlencode "dt=t" \
+                  --data-urlencode "q=$desc" \
+            "https://translate.googleapis.com/translate_a/single" \
+            | jq -r '.[0][0][0]')
+          
+              echo "📖 简介: ${zh_desc}" >> update.md
+            else
+              echo "📖 简介: (暂无介绍)" >> update.md
+            fi
+
+            echo "" >> update.md   # 换行美化
+          done
+
+          # Git 提交更新
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add update.md
+          git commit -m "chore: daily Star & Fork update" || echo "No changes"
+          git fetch origin main
+          git rebase origin/main || git rebase --abort
+          git push origin HEAD:main || git push --force-with-lease origin HEAD:main
           else
             echo "今天不进行 Star/Fork 🌱" >> update.md
           fi
