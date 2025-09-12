@@ -35,7 +35,7 @@ jobs:
       - name: Random delay
         if: steps.lazy.outputs.lazy != 'true'
         run: |
-          DELAY=$((RANDOM % 2))   # 0~6小时随机延迟
+          DELAY=$((RANDOM % 21600))   # 0~6小时随机延迟
           sleep $DELAY
 
       # 4. Ensure update.md exists
@@ -168,7 +168,7 @@ jobs:
         run: |
           STAR_COUNT=0
           FORK_COUNT=0
-          PROB_ACTION=100     # Star & Fork 概率（%）
+          PROB_ACTION=50     # Star & Fork 概率（%）
           RAND=$(( RANDOM % 100 + 1 ))
 
           if [ $RAND -le $PROB_ACTION ]; then
