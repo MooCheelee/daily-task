@@ -52,19 +52,9 @@ jobs:
           echo -e "\n## $LOG_DATE" >> update.md
           MOODS=("🤖 开始今天的 Github 任务！")
           echo "${MOODS}" >> update.md
-
-      # 6. Append random logs
-      - name: Append random logs
-        if: steps.lazy.outputs.lazy != 'true'
-        run: |
-          LOG_FILE="update.md"
-          for i in $(seq 1 $((RANDOM % 3 + 1))); do
-            NOW=$(date '+%H:%M:%S')
-            THOUGHTS=("🌱 随手记下一笔")
-            echo "[$NOW] ${THOUGHTS}" >> "$LOG_FILE"
           done
 
-      # 7. Commit & push log
+      # 6. Commit & push log
       - name: Commit and push log
         if: steps.lazy.outputs.lazy != 'true'
         env:
@@ -79,7 +69,7 @@ jobs:
           git rebase origin/main || git rebase --abort
           git push origin HEAD:main || git push --force-with-lease origin HEAD:main
 
-      # 8. Clean logs older than 7 days
+      # 7. Clean logs older than 7 days
       - name: Clean logs older than 7 days
         if: steps.lazy.outputs.lazy != 'true'
         run: |
@@ -97,7 +87,7 @@ jobs:
             git push origin HEAD:main || git push --force-with-lease origin HEAD:main
           fi
 
-      # 9a. Create Issue
+      # 8a. Create Issue
       - name: Create Issue
         if: steps.lazy.outputs.lazy != 'true'
         id: create-issue
@@ -118,7 +108,7 @@ jobs:
           fi
           echo "CREATED_ISSUE=$CREATED_ISSUE" >> $GITHUB_OUTPUT
 
-      # 9b. Create Pull Request
+      # 8b. Create Pull Request
       - name: Create Pull Request
         if: steps.lazy.outputs.lazy != 'true'
         id: create-pr
@@ -145,7 +135,7 @@ jobs:
           fi
           echo "CREATED_PR=$CREATED_PR" >> $GITHUB_OUTPUT
           
-      # 10. Auto Review & Merge PR
+      # 9. Auto Review & Merge PR
       - name: Auto Review and Merge
         if: steps.lazy.outputs.lazy != 'true'
         env:
@@ -160,7 +150,7 @@ jobs:
             echo "✅ 自动合并了 PR #$PR_NUM" >> update.md
           fi
 
-      # 11. Star & Fork random repos
+      # 10. Star & Fork random repos
       - name: Star and Fork random repos
         if: steps.lazy.outputs.lazy != 'true'
         env:
@@ -219,7 +209,7 @@ jobs:
             echo "今天不进行 Star/Fork 🌱" >> update.md
           fi
 
-      # 12. Clean up old merged branches
+      # 11. Clean up old merged branches
       - name: Clean up old merged branches
         if: steps.lazy.outputs.lazy != 'true'
         env:
@@ -239,7 +229,7 @@ jobs:
             fi
           done
 
-      # 13. Daily summary
+      # 12. Daily summary
       - name: Write summary
         if: steps.lazy.outputs.lazy != 'true'
         run: |
