@@ -307,3 +307,13 @@
 📖 记录一下日常操作
 [10:47:19] 🚀 来一发 PR
 [10:47:19] 📌 打个小补丁
+今天不创建 Issue 🌱
+今天不创建 PR 🌱
+⭐ Starred jackfrued/Python-100-Days
+🍴 Forked jackfrued/Python-100-Days
+📖 简介: Python -100天从新手到大师
+
+⭐ Starred CyC2018/CS-Notes
+🍴 Forked CyC2018/CS-Notes
+📖 简介: ：书籍：技术面试必备基础知识、 leetcode 、计算机操作系统、计算机网络、系统设计
+
