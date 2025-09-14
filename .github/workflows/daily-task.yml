@@ -150,7 +150,25 @@ jobs:
             echo "✅ 自动合并了 PR #$PR_NUM" >> update.md
           fi
 
-      # 10. Star & Fork random repos
+      # 10. Auto Close Issues
+      - name: Auto Close Issues
+        if: steps.lazy.outputs.lazy != 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+        run: |
+          TARGET_REPO="${GITHUB_REPOSITORY}"
+          ISSUE_LIST=$(gh issue list --state open --repo "$TARGET_REPO" --json number -q '.[].number')
+
+          if [ -n "$ISSUE_LIST" ]; then
+            # 随机选一个 Issue 来关闭（也可以改成循环关闭所有 Issue）
+            ISSUE_NUM=$(echo "$ISSUE_LIST" | shuf -n1)
+            gh issue close "$ISSUE_NUM" --repo "$TARGET_REPO"
+            echo "🚫 自动关闭了 Issue #$ISSUE_NUM" >> update.md
+          else
+            echo "🎉 没有需要关闭的 Issue" >> update.md
+          fi
+
+      # 11. Star & Fork random repos
       - name: Star and Fork random repos
         if: steps.lazy.outputs.lazy != 'true'
         env:
@@ -209,7 +227,7 @@ jobs:
             echo "今天不进行 Star/Fork 🌱" >> update.md
           fi
 
-      # 11. Clean up old merged branches
+      # 12. Clean up old merged branches
       - name: Clean up old merged branches
         if: steps.lazy.outputs.lazy != 'true'
         env:
@@ -229,7 +247,7 @@ jobs:
             fi
           done
 
-      # 12. Daily summary
+      # 13. Daily summary
       - name: Write summary
         if: steps.lazy.outputs.lazy != 'true'
         run: |
