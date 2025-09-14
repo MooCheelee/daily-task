@@ -50,8 +50,8 @@ jobs:
         run: |
           LOG_DATE=$(date '+%Y-%m-%d %H:%M:%S')
           echo -e "\n## $LOG_DATE" >> update.md
-          MOODS=("✨ 开始今天的 Github 任务！" "☕ 边喝咖啡边写点代码～" "🛠️ 今天也要折腾一番！" "📖 记录一下日常操作")
-          echo "${MOODS[$RANDOM % ${#MOODS[@]}]}" >> update.md
+          MOODS=("🤖 开始今天的 Github 任务！")
+          echo "${MOODS}" >> update.md
 
       # 6. Append random logs
       - name: Append random logs
@@ -60,8 +60,8 @@ jobs:
           LOG_FILE="update.md"
           for i in $(seq 1 $((RANDOM % 3 + 1))); do
             NOW=$(date '+%H:%M:%S')
-            THOUGHTS=("🌱 随手记下一笔" "✍️ 突然想到点东西" "🚀 来一发 PR" "📌 打个小补丁" "🎯 试试新点子")
-            echo "[$NOW] ${THOUGHTS[$RANDOM % ${#THOUGHTS[@]}]}" >> "$LOG_FILE"
+            THOUGHTS=("🌱 随手记下一笔")
+            echo "[$NOW] ${THOUGHTS}" >> "$LOG_FILE"
           done
 
       # 7. Commit & push log
@@ -168,7 +168,7 @@ jobs:
         run: |
           STAR_COUNT=0
           FORK_COUNT=0
-          PROB_ACTION=50     # Star & Fork 概率（%）
+          PROB_ACTION=30     # Star & Fork 概率（%）
           RAND=$(( RANDOM % 100 + 1 ))
 
           if [ $RAND -le $PROB_ACTION ]; then
