@@ -270,10 +270,10 @@ jobs:
           CLEAN_LOG_COUNT=$(grep -c '清理超过 7 天的旧日志' $LOG_FILE || echo 0)
           CLEAN_BRANCH_COUNT=$(grep -c '🗑️ 删除已合并超过 7 天的分支' $LOG_FILE || echo 0)
 
-          echo -e "\n### 🌙 今日总结" >> $LOG_FILE
-          echo "[$NOW] 今日任务完成 ✅" >> $LOG_FILE
+          echo -e "\n### 🌙 今日总结" >> "$LOG_FILE"
+          echo "[$NOW] 今日任务完成 ✅" >> "$LOG_FILE"
           echo "- 📝 日志条目: $LOG_COUNT" >> "$LOG_FILE"
-          echo"- 🔧 创建 Issue: $ISSUE_COUNT" >> "$LOG_FILE"
+          echo "- 🔧 创建 Issue: $ISSUE_COUNT" >> "$LOG_FILE"
           echo "- 📦 创建 PR: $PR_COUNT" >> "$LOG_FILE"
           echo "- ✅ 合并 PR: $MERGED_COUNT" >> "$LOG_FILE"
           echo "- ⭐ Star: $STAR_COUNT" >> "$LOG_FILE"
