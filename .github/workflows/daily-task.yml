@@ -35,7 +35,7 @@ jobs:
       - name: Random delay
         if: steps.lazy.outputs.lazy != 'true'
         run: |
-          DELAY=$((RANDOM % 21600))
+          DELAY=$((RANDOM % 2))
           sleep $DELAY
 
       # 4. Ensure update.md exists
@@ -180,39 +180,4 @@ jobs:
             fi
           done
 
-      # 12. Daily summary
-      - name: Write summary
-        if: steps.lazy.outputs.lazy != 'true'
-        env:
-          GH_USER: ${{ secrets.GH_USER }}
-          GH_EMAIL: ${{ secrets.GH_EMAIL }}
-        run: |
-          NOW=$(date +"%Y-%m-%d %H:%M:%S")
-          LOG_FILE="update.md"
-          LOG_COUNT=$(grep -c '🌱' $LOG_FILE || echo 0)
-          ISSUE_COUNT=$(grep -c '📝 创建了一个 Issue' $LOG_FILE || echo 0)
-          PR_COUNT=$(grep -c '📦 提交了一个 PR' $LOG_FILE || echo 0)
-          MERGED_COUNT=$(grep -c '✅ 自动合并了 PR' $LOG_FILE || echo 0)
-          STAR_COUNT=$(grep -c '⭐' $LOG_FILE || echo 0)
-          FORK_COUNT=$(grep -c '🍴' $LOG_FILE || echo 0)
-          CLEAN_LOG_COUNT=$(grep -c '清理超过 7 天的旧日志' $LOG_FILE || echo 0)
-          CLEAN_BRANCH_COUNT=$(grep -c '🗑️ 删除已合并超过 7 天的分支' $LOG_FILE || echo 0)
-
-          echo -e "\n### 🌙 今日总结" >> "$LOG_FILE"
-          echo "[$NOW] 今日任务完成 ✅" >> "$LOG_FILE"
-          echo "- 📝 日志条目: $LOG_COUNT" >> "$LOG_FILE"
-          echo "- 🔧 创建 Issue: $ISSUE_COUNT" >> "$LOG_FILE"
-          echo "- 📦 创建 PR: $PR_COUNT" >> "$LOG_FILE"
-          echo "- ✅ 合并 PR: $MERGED_COUNT" >> "$LOG_FILE"
-          echo "- ⭐ Star: $STAR_COUNT" >> "$LOG_FILE"
-          echo "- 🍴 Fork: $FORK_COUNT" >> "$LOG_FILE"
-          echo "- 🧹 清理日志: $CLEAN_LOG_COUNT" >> "$LOG_FILE"
-          echo "- 🧹 清理分支: $CLEAN_BRANCH_COUNT" >> "$LOG_FILE"
-
-          git config user.name "$GH_USER"
-          git config user.email "$GH_EMAIL"
-          git add "$LOG_FILE"
-          git commit -m "chore: daily summary with counts" || echo "No changes"
-          git fetch origin main
-          git rebase origin/main || git rebase --abort
-          git push origin HEAD:main || git push --force-with-lease origin HEAD:main
+      
