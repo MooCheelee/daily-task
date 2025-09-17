@@ -414,3 +414,5 @@
 [10:33:30] 📝 创建了一个 Issue (bug)
 [10:33:30] 🌿 今天不创建 PR
 [10:33:32] 🚫 自动关闭了 Issue #232
+[10:33:34] ⭐ Starred getify/You-Dont-Know-JS
+[10:33:34] 🍴 Forked getify/You-Dont-Know-JS
