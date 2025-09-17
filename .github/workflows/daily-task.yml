@@ -11,7 +11,11 @@ on:
 jobs:
   daily-activity:
     runs-on: ubuntu-latest
-
+    env:
+      GH_TOKEN: ${{ secrets.GH_PAT }}
+      GH_USER: ${{ secrets.GH_USER }}
+      GH_EMAIL: ${{ secrets.GH_EMAIL }}
+      
     steps:
       # 1. Checkout repo
       - name: Checkout repo
@@ -47,9 +51,6 @@ jobs:
       # 5. Add daily date header
       - name: Add daily date header
         if: steps.lazy.outputs.lazy != 'true'
-        env:
-          GH_USER: ${{ secrets.GH_USER }}
-          GH_EMAIL: ${{ secrets.GH_EMAIL }}
         run: |
           git config user.name "$GH_USER"
           git config user.email "$GH_EMAIL"
@@ -61,9 +62,6 @@ jobs:
       # 6. Commit update.md (每天必提交)
       - name: Commit update.md
         if: steps.lazy.outputs.lazy != 'true'
-        env:
-          GH_USER: ${{ secrets.GH_USER }}
-          GH_EMAIL: ${{ secrets.GH_EMAIL }}
         run: |
           git config user.name "$GH_USER"
           git config user.email "$GH_EMAIL"
@@ -75,10 +73,6 @@ jobs:
       # 7. Create Issue
       - name: Create Issue
         if: steps.lazy.outputs.lazy != 'true'
-        env:
-          GH_TOKEN: ${{ secrets.GH_PAT }}
-          GH_USER: ${{ secrets.GH_USER }}
-          GH_EMAIL: ${{ secrets.GH_EMAIL }}
         run: |
           RAND=$((RANDOM % 100 + 1))
           git config user.name "$GH_USER"
@@ -108,10 +102,6 @@ jobs:
       # 8. Create Pull Request
       - name: Create Pull Request
         if: steps.lazy.outputs.lazy != 'true'
-        env:
-          GH_TOKEN: ${{ secrets.GH_PAT }}
-          GH_USER: ${{ secrets.GH_USER }}
-          GH_EMAIL: ${{ secrets.GH_EMAIL }}
         run: |
           RAND=$((RANDOM % 100 + 1))
           git config user.name "$GH_USER"
@@ -136,10 +126,6 @@ jobs:
       # 9. Auto Review & Merge PR
       - name: Auto Review and Merge
         if: steps.lazy.outputs.lazy != 'true'
-        env:
-          GH_TOKEN: ${{ secrets.GH_PAT }}
-          GH_USER: ${{ secrets.GH_USER }}
-          GH_EMAIL: ${{ secrets.GH_EMAIL }}
         run: |
           git config user.name "$GH_USER"
           git config user.email "$GH_EMAIL"
@@ -157,10 +143,6 @@ jobs:
       # 10. Auto Close Issues
       - name: Auto Close Issues
         if: steps.lazy.outputs.lazy != 'true'
-        env:
-          GH_TOKEN: ${{ secrets.GH_PAT }}
-          GH_USER: ${{ secrets.GH_USER }}
-          GH_EMAIL: ${{ secrets.GH_EMAIL }}
         run: |
           git config user.name "$GH_USER"
           git config user.email "$GH_EMAIL"
@@ -179,10 +161,6 @@ jobs:
       # 11. Star & Fork 热门仓库
       - name: Star and Fork random repos
         if: steps.lazy.outputs.lazy != 'true'
-        env:
-          GH_TOKEN: ${{ secrets.GH_PAT }}
-          GH_USER: ${{ secrets.GH_USER }}
-          GH_EMAIL: ${{ secrets.GH_EMAIL }}
         run: |
           PROB_ACTION=30
           RAND=$((RANDOM % 100 + 1))
@@ -207,10 +185,6 @@ jobs:
       # 12. Clean up old merged branches
       - name: Clean up old merged branches
         if: steps.lazy.outputs.lazy != 'true'
-        env:
-          GH_TOKEN: ${{ secrets.GH_PAT }}
-          GH_USER: ${{ secrets.GH_USER }}
-          GH_EMAIL: ${{ secrets.GH_EMAIL }}
         run: |
           git config user.name "$GH_USER"
           git config user.email "$GH_EMAIL"
@@ -234,9 +208,6 @@ jobs:
       # 13. Clean up old logs
       - name: Clean up old logs (keep 7 days)
         if: steps.lazy.outputs.lazy != 'true'
-        env:
-          GH_USER: ${{ secrets.GH_USER }}
-          GH_EMAIL: ${{ secrets.GH_EMAIL }}
         run: |
           git config user.name "$GH_USER"
           git config user.email "$GH_EMAIL"
