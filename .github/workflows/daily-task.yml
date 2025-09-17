@@ -216,7 +216,6 @@ jobs:
             TMP=$(mktemp)
             TODAY=$(date +%s)
             while IFS= read -r line; do
-              # 匹配行里的日期 (格式: 2025-09-17)
               DATE=$(echo "$line" | grep -oE '[0-9]{4}-[0-9]{2}-[0-9]{2}')
               if [ -n "$DATE" ]; then
                 TS=$(date -d "$DATE" +%s 2>/dev/null || echo 0)
@@ -225,7 +224,6 @@ jobs:
                   echo "$line" >> "$TMP"
                 fi
               else
-                # 没有日期的行（例如时间行），也保留
                 echo "$line" >> "$TMP"
               fi
             done < update.md
