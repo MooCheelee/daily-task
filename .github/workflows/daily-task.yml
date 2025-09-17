@@ -83,7 +83,7 @@ jobs:
           RAND=$((RANDOM % 100 + 1))
           git config user.name "$GH_USER"
           git config user.email "$GH_EMAIL"
-          if [ $RAND -le 100 ]; then
+          if [ $RAND -le 35 ]; then
             LABELS=("bug" "enhancement" "discussion")
             LABEL=${LABELS[$RANDOM % ${#LABELS[@]}]}
 
@@ -229,4 +229,38 @@ jobs:
           done
           git add update.md
           git commit -m "chore: update cleaned branches log" || echo "No changes"
+          git push origin HEAD:main
+
+      # 13. Clean up old logs
+      - name: Clean up old logs (keep 7 days)
+        if: steps.lazy.outputs.lazy != 'true'
+        env:
+          GH_USER: ${{ secrets.GH_USER }}
+          GH_EMAIL: ${{ secrets.GH_EMAIL }}
+        run: |
+          git config user.name "$GH_USER"
+          git config user.email "$GH_EMAIL"
+
+          if [ -f update.md ]; then
+            TMP=$(mktemp)
+            TODAY=$(date +%s)
+            while IFS= read -r line; do
+              # 匹配行里的日期 (格式: 2025-09-17)
+              DATE=$(echo "$line" | grep -oE '[0-9]{4}-[0-9]{2}-[0-9]{2}')
+              if [ -n "$DATE" ]; then
+                TS=$(date -d "$DATE" +%s 2>/dev/null || echo 0)
+                AGE=$(( (TODAY - TS) / 86400 ))
+                if [ $AGE -le 7 ]; then
+                  echo "$line" >> "$TMP"
+                fi
+              else
+                # 没有日期的行（例如时间行），也保留
+                echo "$line" >> "$TMP"
+              fi
+            done < update.md
+            mv "$TMP" update.md
+          fi
+
+          git add update.md
+          git commit -m "chore: clean old logs (keep 7 days)" || echo "No changes"
           git push origin HEAD:main
