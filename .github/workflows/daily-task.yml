@@ -200,32 +200,3 @@ jobs:
           git add update.md
           git commit -m "chore: update cleaned branches log" || echo "No changes"
           git push origin HEAD:main
-
-      # 13. Clean up old logs (keep 7 days)
-      - name: Clean up old logs
-        if: steps.lazy.outputs.lazy != 'true'
-        run: |
-          git config user.name "${GH_USER}"
-          git config user.email "${GH_EMAIL}"
-
-          if [ -f update.md ]; then
-            TMP=$(mktemp)
-            TODAY=$(date +%s)
-            while IFS= read -r line; do
-              DATE=$(echo "$line" | grep -oE '[0-9]{4}-[0-9]{2}-[0-9]{2}')
-              if [ -n "$DATE" ]; then
-                TS=$(date -d "$DATE" +%s 2>/dev/null || echo 0)
-                AGE=$(( (TODAY - TS) / 86400 ))
-                if [ $AGE -le 7 ]; then
-                  echo "$line" >> "$TMP"
-                fi
-              else
-                echo "$line" >> "$TMP"
-              fi
-            done < update.md
-            mv "$TMP" update.md
-          fi
-
-          git add update.md
-          git commit -m "chore: clean old logs (keep 7 days)" || echo "No changes"
-          git push origin HEAD:main
