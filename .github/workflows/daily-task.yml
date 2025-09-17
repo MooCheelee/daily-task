@@ -83,9 +83,16 @@ jobs:
           RAND=$((RANDOM % 100 + 1))
           git config user.name "$GH_USER"
           git config user.email "$GH_EMAIL"
-          if [ $RAND -le 35 ]; then
+          if [ $RAND -le 100 ]; then
             LABELS=("bug" "enhancement" "discussion")
             LABEL=${LABELS[$RANDOM % ${#LABELS[@]}]}
+
+            # 确保标签存在（不存在则创建，存在则更新描述）
+            gh label create "$LABEL" \
+              --repo $GITHUB_REPOSITORY \
+              --force \
+              --description "Auto-generated label"
+
             gh issue create --title "Daily Issue - $(date '+%Y-%m-%d %H:%M:%S')" \
                             --body "随机生成每日 Issue 🌱" \
                             --label "$LABEL" \
