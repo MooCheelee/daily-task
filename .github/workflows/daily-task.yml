@@ -15,7 +15,7 @@ jobs:
       GH_TOKEN: ${{ secrets.GH_PAT }}
       GH_USER: ${{ secrets.GH_USER }}
       GH_EMAIL: ${{ secrets.GH_EMAIL }}
-      
+
     steps:
       # 1. Checkout repo
       - name: Checkout repo
@@ -52,8 +52,8 @@ jobs:
       - name: Add daily date header
         if: steps.lazy.outputs.lazy != 'true'
         run: |
-          git config user.name "$GH_USER"
-          git config user.email "$GH_EMAIL"
+          git config user.name "${GH_USER}"
+          git config user.email "${GH_EMAIL}"
           echo -e "\n🌙 $(date '+%Y-%m-%d')\n" >> update.md
           git add update.md
           git commit -m "chore: add daily date header" || echo "No changes"
@@ -63,8 +63,8 @@ jobs:
       - name: Commit update.md
         if: steps.lazy.outputs.lazy != 'true'
         run: |
-          git config user.name "$GH_USER"
-          git config user.email "$GH_EMAIL"
+          git config user.name "${GH_USER}"
+          git config user.email "${GH_EMAIL}"
           echo "[$(date '+%H:%M:%S')] 🌱 日志更新" >> update.md
           git add update.md
           git commit -m "chore: daily log update" || echo "No changes"
@@ -74,27 +74,23 @@ jobs:
       - name: Create Issue
         if: steps.lazy.outputs.lazy != 'true'
         run: |
+          git config user.name "${GH_USER}"
+          git config user.email "${GH_EMAIL}"
           RAND=$((RANDOM % 100 + 1))
-          git config user.name "$GH_USER"
-          git config user.email "$GH_EMAIL"
-          if [ $RAND -le 35 ]; then
-            LABELS=("bug" "enhancement" "discussion")
-            LABEL=${LABELS[$RANDOM % ${#LABELS[@]}]}
+          LABELS=("bug" "enhancement" "discussion")
+          LABEL=${LABELS[$RANDOM % ${#LABELS[@]}]}
 
-            # 确保标签存在（不存在则创建，存在则更新描述）
-            gh label create "$LABEL" \
-              --repo $GITHUB_REPOSITORY \
-              --force \
-              --description "Auto-generated label"
+          # 确保标签存在
+          gh label create "$LABEL" \
+            --repo $GITHUB_REPOSITORY \
+            --force \
+            --description "Auto-generated label"
 
-            gh issue create --title "Daily Issue - $(date '+%Y-%m-%d %H:%M:%S')" \
-                            --body "随机生成每日 Issue 🌱" \
-                            --label "$LABEL" \
-                            --repo $GITHUB_REPOSITORY
-            echo "[$(date '+%H:%M:%S')] 📝 创建了一个 Issue ($LABEL)" >> update.md
-          else
-            echo "[$(date '+%H:%M:%S')] 🌿 今天不创建 Issue" >> update.md
-          fi
+          gh issue create --title "Daily Issue - $(date '+%Y-%m-%d %H:%M:%S')" \
+                          --body "随机生成每日 Issue 🌱" \
+                          --label "$LABEL" \
+                          --repo $GITHUB_REPOSITORY
+          echo "[$(date '+%H:%M:%S')] 📝 创建了一个 Issue ($LABEL)" >> update.md
           git add update.md
           git commit -m "chore: update issue log" || echo "No changes"
           git push origin HEAD:main
@@ -103,9 +99,9 @@ jobs:
       - name: Create Pull Request
         if: steps.lazy.outputs.lazy != 'true'
         run: |
+          git config user.name "${GH_USER}"
+          git config user.email "${GH_EMAIL}"
           RAND=$((RANDOM % 100 + 1))
-          git config user.name "$GH_USER"
-          git config user.email "$GH_EMAIL"
           if [ $RAND -le 35 ]; then
             BRANCH="daily-pr-$(date '+%Y%m%d%H%M%S')"
             git checkout -b "$BRANCH"
@@ -127,8 +123,8 @@ jobs:
       - name: Auto Review and Merge
         if: steps.lazy.outputs.lazy != 'true'
         run: |
-          git config user.name "$GH_USER"
-          git config user.email "$GH_EMAIL"
+          git config user.name "${GH_USER}"
+          git config user.email "${GH_EMAIL}"
           PR_LIST=$(gh pr list --state open --repo "$GITHUB_REPOSITORY" --json number -q '.[].number')
           if [ -n "$PR_LIST" ]; then
             PR_NUM=$(echo "$PR_LIST" | shuf -n1)
@@ -144,8 +140,8 @@ jobs:
       - name: Auto Close Issues
         if: steps.lazy.outputs.lazy != 'true'
         run: |
-          git config user.name "$GH_USER"
-          git config user.email "$GH_EMAIL"
+          git config user.name "${GH_USER}"
+          git config user.email "${GH_EMAIL}"
           ISSUE_LIST=$(gh issue list --state open --repo "$GITHUB_REPOSITORY" --json number -q '.[].number')
           if [ -n "$ISSUE_LIST" ]; then
             ISSUE_NUM=$(echo "$ISSUE_LIST" | shuf -n1)
@@ -162,10 +158,10 @@ jobs:
       - name: Star and Fork random repos
         if: steps.lazy.outputs.lazy != 'true'
         run: |
+          git config user.name "${GH_USER}"
+          git config user.email "${GH_EMAIL}"
           PROB_ACTION=30
           RAND=$((RANDOM % 100 + 1))
-          git config user.name "$GH_USER"
-          git config user.email "$GH_EMAIL"
           if [ $RAND -le $PROB_ACTION ]; then
             COUNT=$((RANDOM % 2 + 1))
             repos=$(gh api search/repositories -X GET -F q='stars:>50000' --jq '.items[].full_name' | shuf -n $COUNT)
@@ -186,8 +182,8 @@ jobs:
       - name: Clean up old merged branches
         if: steps.lazy.outputs.lazy != 'true'
         run: |
-          git config user.name "$GH_USER"
-          git config user.email "$GH_EMAIL"
+          git config user.name "${GH_USER}"
+          git config user.email "${GH_EMAIL}"
           NOW=$(date +%s)
           gh pr list --state merged --repo "$GITHUB_REPOSITORY" --json number,headRefName,mergedAt -q '.[]' | while read pr; do
             BRANCH=$(echo "$pr" | jq -r '.headRefName')
@@ -205,13 +201,13 @@ jobs:
           git commit -m "chore: update cleaned branches log" || echo "No changes"
           git push origin HEAD:main
 
-      # 13. Clean up old logs
-      - name: Clean up old logs (keep 7 days)
+      # 13. Clean up old logs (keep 7 days)
+      - name: Clean up old logs
         if: steps.lazy.outputs.lazy != 'true'
         run: |
-          git config --global user.name "${GH_USER}"
-          git config --global user.email "${GH_EMAIL}"
-        
+          git config user.name "${GH_USER}"
+          git config user.email "${GH_EMAIL}"
+
           if [ -f update.md ]; then
             TMP=$(mktemp)
             TODAY=$(date +%s)
