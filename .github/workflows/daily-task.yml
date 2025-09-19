@@ -76,25 +76,33 @@ jobs:
         run: |
           git config user.name "${GH_USER}"
           git config user.email "${GH_EMAIL}"
-          RAND=$((RANDOM % 100 + 1))
-          LABELS=("bug" "enhancement" "discussion")
-          LABEL=${LABELS[$RANDOM % ${#LABELS[@]}]}
 
-          # 确保标签存在
-          gh label create "$LABEL" \
-            --repo $GITHUB_REPOSITORY \
-            --force \
-            --description "Auto-generated label"
+          RAND=$((RANDOM % 100 + 1))   # 生成 1~100 的随机数
+          echo "[$(date '+%H:%M:%S')] 🎲 随机数: $RAND" >> update.md
 
-          gh issue create --title "Daily Issue - $(date '+%Y-%m-%d %H:%M:%S')" \
-                          --body "随机生成每日 Issue 🌱" \
-                          --label "$LABEL" \
-                          --repo $GITHUB_REPOSITORY
-          echo "[$(date '+%H:%M:%S')] 📝 创建了一个 Issue ($LABEL)" >> update.md
+          if [ $RAND -le 35 ]; then
+            LABELS=("bug" "enhancement" "discussion")
+            LABEL=${LABELS[$RANDOM % ${#LABELS[@]}]}
+
+            # 确保标签存在
+            gh label create "$LABEL" \
+              --repo $GITHUB_REPOSITORY \
+              --force \
+              --description "Auto-generated label"
+
+            gh issue create --title "Daily Issue - $(date '+%Y-%m-%d %H:%M:%S')" \
+                      --body "随机生成每日 Issue 🌱" \
+                      --label "$LABEL" \
+                      --repo $GITHUB_REPOSITORY
+            echo "[$(date '+%H:%M:%S')] 📝 创建了一个 Issue ($LABEL)" >> update.md
+          else
+            echo "[$(date '+%H:%M:%S')] 🌿 今天不创建 Issue" >> update.md
+          fi
+
           git add update.md
           git commit -m "chore: update issue log" || echo "No changes"
           git push origin HEAD:main
-
+    
       # 8. Create Pull Request
       - name: Create Pull Request
         if: steps.lazy.outputs.lazy != 'true'
